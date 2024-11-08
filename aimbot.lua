@@ -70,7 +70,7 @@ local UISettings = {
     Theme = "VSC Dark High Contrast",
     Acrylic = false,
     Transparency = true,
-    MinimizeKey = "RightShift",
+    MinimizeKey = "RightControl",
     ShowNotifications = true,
     ShowWarnings = true,
     RenderingMode = "RenderStepped",
@@ -138,7 +138,7 @@ local Configuration = {}
 
 --? Aimbot
 
-Configuration.Aimbot = ImportedConfiguration["Aimbot"] or "LeftALT"
+Configuration.Aimbot = ImportedConfiguration["Aimbot"] or "LeftAlt"
 Configuration.OnePressAimingMode = ImportedConfiguration["OnePressAimingMode"] or false
 Configuration.AimKey = ImportedConfiguration["AimKey"] or "RMB"
 Configuration.AimMode = ImportedConfiguration["AimMode"] or "Camera"
