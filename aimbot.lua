@@ -138,7 +138,7 @@ local Configuration = {}
 
 --? Aimbot
 
-Configuration.Aimbot = ImportedConfiguration["Aimbot"] or "LeftAlt"
+Configuration.Aimbot = ImportedConfiguration["AimbotKey"] or "LeftAlt"
 Configuration.OnePressAimingMode = ImportedConfiguration["OnePressAimingMode"] or false
 Configuration.AimKey = ImportedConfiguration["AimKey"] or "RMB"
 Configuration.AimMode = ImportedConfiguration["AimMode"] or "Camera"
