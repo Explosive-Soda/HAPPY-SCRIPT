@@ -1,0 +1,105 @@
+--// CONFIGURATION
+local toggleKey_ESP = Enum.KeyCode.J
+local toggleKey_HeadSize = Enum.KeyCode.H
+local headSize = 5
+
+--// SERVICES
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+--// ENEMY FOLDER
+local enemiesFolder = Workspace:WaitForChild("active")
+	:WaitForChild("Programming")
+	:WaitForChild("Enemies")
+
+--// VARIABLES
+local espEnabled = true
+local headEnlargeEnabled = false
+
+--// CREATE ESP
+local function createESP(target)
+	if not target:IsA("Model") then return end
+	if target:FindFirstChildOfClass("Highlight") then return end
+
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "ESP_HIGHLIGHT"
+	highlight.FillColor = Color3.fromRGB(0, 0, 0)
+	highlight.FillTransparency = 0.6
+	highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+	highlight.OutlineTransparency = 0.3
+	highlight.Adornee = target
+	highlight.Parent = target
+end
+
+local function removeESP(target)
+	local existing = target:FindFirstChild("ESP_HIGHLIGHT")
+	if existing then
+		existing:Destroy()
+	end
+end
+
+local function updateAllESP()
+	for _, enemy in ipairs(enemiesFolder:GetChildren()) do
+		if espEnabled then
+			createESP(enemy)
+		else
+			removeESP(enemy)
+		end
+	end
+end
+
+--// HEAD ENLARGER
+local function applyHeadSize(enemy)
+	local head = enemy:FindFirstChild("Head")
+	local torso = enemy:FindFirstChild("Torso") or enemy:FindFirstChild("UpperTorso") or enemy:FindFirstChild("HumanoidRootPart")
+	if head and torso then
+		head.CanCollide = false
+		head.Size = Vector3.new(headSize, headSize, headSize)
+		head.CFrame = torso.CFrame * CFrame.new(0, headSize / 2, 0)
+	end
+end
+
+local function ensureHeadSizes()
+	for _, enemy in ipairs(enemiesFolder:GetChildren()) do
+		local head = enemy:FindFirstChild("Head")
+		if head and (head.Size.X < headSize - 0.1 or head.Size.X > headSize + 0.1) then
+			applyHeadSize(enemy)
+		end
+	end
+end
+
+--// KEY HANDLING
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+
+	if input.KeyCode == toggleKey_ESP then
+		espEnabled = not espEnabled
+		updateAllESP()
+		warn("ESP Toggled:", espEnabled and "ON" or "OFF")
+
+	elseif input.KeyCode == toggleKey_HeadSize then
+		headEnlargeEnabled = not headEnlargeEnabled
+		warn("Head Enlarger Toggled:", headEnlargeEnabled and "ON" or "OFF")
+	end
+end)
+
+--// AUTO APPLY ON NEW ENEMY
+enemiesFolder.ChildAdded:Connect(function(child)
+	if espEnabled then
+		createESP(child)
+	end
+	if headEnlargeEnabled then
+		applyHeadSize(child)
+	end
+end)
+
+--// LOOP MAINTAIN HEAD SIZE
+RunService.RenderStepped:Connect(function()
+	if headEnlargeEnabled then
+		ensureHeadSizes()
+	end
+end)
+
+--// INIT
+updateAllESP()
