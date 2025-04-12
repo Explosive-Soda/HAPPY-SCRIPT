@@ -25,7 +25,7 @@ local function createESP(target)
 	local highlight = Instance.new("Highlight")
 	highlight.Name = "ESP_HIGHLIGHT"
 	highlight.FillColor = Color3.fromRGB(0, 0, 0)
-	highlight.FillTransparency = 0.6
+	highlight.FillTransparency = 0
 	highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
 	highlight.OutlineTransparency = 0.3
 	highlight.Adornee = target
