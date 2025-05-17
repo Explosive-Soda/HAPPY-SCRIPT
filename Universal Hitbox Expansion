@@ -1,0 +1,250 @@
+--version12
+-- 基于 version11 修改排版：RGB 并排、输入框圆角、取消按钮粗体
+
+-- SERVICES
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+-- 默认设置
+local defaultSize = 10
+local defaultColor = Color3.new(1, 1, 1)
+local defaultTransparency = 0.9
+local currentSize = defaultSize
+local currentColor = defaultColor
+local currentTransparency = defaultTransparency
+local teamCheck = false
+local toggleKey = Enum.KeyCode.RightAlt
+local originalSizes = {}
+
+-- GUI 创建
+local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
+ScreenGui.Name = "HITBOX_GUI"
+ScreenGui.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 320, 0, 400)
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -200)
+MainFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
+local stroke = Instance.new("UIStroke", MainFrame)
+stroke.Color = Color3.new(1, 1, 1)
+stroke.Thickness = 2
+
+local HideButton = Instance.new("TextButton", MainFrame)
+HideButton.Size = UDim2.new(0, 25, 0, 25)
+HideButton.Position = UDim2.new(1, -5, 0, 5)
+HideButton.AnchorPoint = Vector2.new(1, 0)
+HideButton.BackgroundColor3 = Color3.new(1, 0, 0)
+HideButton.Text = ""
+HideButton.ZIndex = 10
+Instance.new("UICorner", HideButton).CornerRadius = UDim.new(1, 0)
+local hideStroke = Instance.new("UIStroke", HideButton)
+hideStroke.Color = Color3.new(1, 1, 1)
+hideStroke.Thickness = 1.5
+HideButton.MouseButton1Click:Connect(function()
+	MainFrame.Visible = false
+end)
+
+local Container = Instance.new("Frame", MainFrame)
+Container.Size = UDim2.new(1, -20, 1, -60)
+Container.Position = UDim2.new(0, 10, 0, 40)
+Container.BackgroundTransparency = 1
+
+local List = Instance.new("UIListLayout", Container)
+List.SortOrder = Enum.SortOrder.LayoutOrder
+List.Padding = UDim.new(0, 8)
+List.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+-- Label 函数
+local function CreateLabel(text, order)
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.new(1, -20, 0, 20)
+	lbl.BackgroundTransparency = 1
+	lbl.Text = text:upper()
+	lbl.Font = Enum.Font.SourceSans
+	lbl.TextColor3 = Color3.new(1, 1, 1)
+	lbl.TextScaled = true
+	lbl.LayoutOrder = order
+	lbl.Parent = Container
+	return lbl
+end
+
+-- 输入框函数（圆角）
+local function CreateInput(defaultValue, callback)
+	local box = Instance.new("TextBox")
+	box.Size = UDim2.new(1, 0, 0, 24)
+	box.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+	box.TextColor3 = Color3.new(1, 1, 1)
+	box.Font = Enum.Font.SourceSans
+	box.TextScaled = true
+	box.Text = tostring(defaultValue)
+	box.ClearTextOnFocus = true
+	Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
+	box.Changed:Connect(function(prop)
+		if prop == "Text" then
+			local val = tonumber(box.Text)
+			if val then callback(val) end
+		end
+	end)
+	return box
+end
+
+-- 尺寸
+CreateLabel("SIZE", 1)
+local SizeInput = CreateInput(currentSize, function(val) currentSize = val end)
+SizeInput.LayoutOrder = 2
+SizeInput.Parent = Container
+
+-- 透明度
+CreateLabel("TRANSPARENCY", 3)
+local TransInput = CreateInput(currentTransparency, function(val) currentTransparency = val end)
+TransInput.LayoutOrder = 4
+TransInput.Parent = Container
+
+-- RGB 一排
+CreateLabel("COLOR", 5)
+local RGBRow = Instance.new("Frame", Container)
+RGBRow.Size = UDim2.new(1, -20, 0, 24)
+RGBRow.LayoutOrder = 6
+RGBRow.BackgroundTransparency = 1
+
+local RGBLayout = Instance.new("UIListLayout", RGBRow)
+RGBLayout.FillDirection = Enum.FillDirection.Horizontal
+RGBLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+RGBLayout.Padding = UDim.new(0, 6)
+
+local RInput = CreateInput(currentColor.R, function(val)
+	currentColor = Color3.new(val, currentColor.G, currentColor.B)
+end)
+RInput.Size = UDim2.new(0.3, 0, 1, 0)
+RInput.Parent = RGBRow
+
+local GInput = CreateInput(currentColor.G, function(val)
+	currentColor = Color3.new(currentColor.R, val, currentColor.B)
+end)
+GInput.Size = UDim2.new(0.3, 0, 1, 0)
+GInput.Parent = RGBRow
+
+local BInput = CreateInput(currentColor.B, function(val)
+	currentColor = Color3.new(currentColor.R, currentColor.G, val)
+end)
+BInput.Size = UDim2.new(0.3, 0, 1, 0)
+BInput.Parent = RGBRow
+
+-- 滑块
+local function CreateToggleSlider(labelText, order, initialState, callback)
+	local container = Instance.new("Frame")
+	container.Size = UDim2.new(1, -20, 0, 30)
+	container.BackgroundTransparency = 1
+	container.LayoutOrder = order
+	container.Parent = Container
+
+	local lbl = Instance.new("TextLabel", container)
+	lbl.Size = UDim2.new(0.6, 0, 1, 0)
+	lbl.BackgroundTransparency = 1
+	lbl.Text = labelText:upper()
+	lbl.Font = Enum.Font.SourceSans
+	lbl.TextScaled = true
+	lbl.TextColor3 = Color3.new(1,1,1)
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+
+	local sliderBg = Instance.new("Frame", container)
+	sliderBg.Size = UDim2.new(0.35, 0, 0.6, 0)
+	sliderBg.Position = UDim2.new(0.65, 0, 0.2, 0)
+	sliderBg.BackgroundColor3 = Color3.fromRGB(100,100,100)
+	sliderBg.BorderSizePixel = 0
+	Instance.new("UICorner", sliderBg).CornerRadius = UDim.new(0, 12)
+
+	local sliderBtn = Instance.new("Frame", sliderBg)
+	sliderBtn.Size = UDim2.new(0.5, -2, 1, -4)
+	sliderBtn.Position = initialState and UDim2.new(0.5, 2, 0, 2) or UDim2.new(0, 2, 0, 2)
+	sliderBtn.BackgroundColor3 = initialState and Color3.fromRGB(0,170,0) or Color3.fromRGB(170,0,0)
+	sliderBtn.BorderSizePixel = 0
+	Instance.new("UICorner", sliderBtn).CornerRadius = UDim.new(1, 0)
+
+	sliderBg.InputBegan:Connect(function(input, gp)
+		if gp then return end
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			initialState = not initialState
+			local goal = initialState and UDim2.new(0.5, 2, 0, 2) or UDim2.new(0, 2, 0, 2)
+			TweenService:Create(sliderBtn, TweenInfo.new(0.2), {Position = goal}):Play()
+			callback(initialState)
+		end
+	end)
+end
+
+CreateToggleSlider("TEAM CHECK", 7, teamCheck, function(state)
+	teamCheck = state
+end)
+
+-- 快捷键按钮
+local function CreateKeyBindButton(order, callback)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(1, -20, 0, 30)
+	btn.LayoutOrder = order
+	btn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+	btn.Font = Enum.Font.SourceSans
+	btn.TextScaled = true
+	btn.TextColor3 = Color3.new(1, 1, 1)
+	btn.Text = "SET TOGGLE KEY (" .. toggleKey.Name:upper() .. ")"
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+	btn.Parent = Container
+	btn.MouseButton1Click:Connect(function()
+		btn.Text = "PRESS ANY KEY..."
+		local conn
+		conn = UserInputService.InputBegan:Connect(function(input, gp)
+			if input.UserInputType == Enum.UserInputType.Keyboard then
+				toggleKey = input.KeyCode
+				btn.Text = "SET TOGGLE KEY (" .. toggleKey.Name:upper() .. ")"
+				callback(toggleKey)
+				conn:Disconnect()
+			end
+		end)
+	end)
+end
+
+CreateKeyBindButton(8, function(key) toggleKey = key end)
+
+-- 快捷键控制隐藏 GUI
+UserInputService.InputBegan:Connect(function(input, gp)
+	if gp then return end
+	if input.KeyCode == toggleKey then
+		MainFrame.Visible = not MainFrame.Visible
+	end
+end)
+
+-- 命中箱逻辑
+RunService.RenderStepped:Connect(function()
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			local hrp = player.Character.HumanoidRootPart
+			if teamCheck and player.Team == LocalPlayer.Team then
+				if hrp:FindFirstChild("OriginalSize") then
+					hrp.Size = hrp.OriginalSize.Value
+					hrp.Transparency = 0
+					hrp.Material = Enum.Material.Plastic
+					hrp.Color = Color3.new(1, 1, 1)
+					hrp.CanCollide = true
+				end
+			else
+				if not hrp:FindFirstChild("OriginalSize") then
+					local orig = Instance.new("Vector3Value", hrp)
+					orig.Name = "OriginalSize"
+					orig.Value = hrp.Size
+				end
+				hrp.Size = Vector3.new(currentSize, currentSize, currentSize)
+				hrp.Transparency = currentTransparency
+				hrp.Material = Enum.Material.Neon
+				hrp.Color = currentColor
+				hrp.CanCollide = false
+			end
+		end
+	end
+end)
