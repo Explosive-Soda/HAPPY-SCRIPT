@@ -67,7 +67,7 @@ local Window = Rayfield:CreateWindow({
     LoadingSubtitle = "Version",
     ConfigurationSaving = {
         Enabled = true,
-        FolderName = "UniversalHub",
+        FolderName = "Universal aimbot",
         FileName = "Version"
     },
 })
