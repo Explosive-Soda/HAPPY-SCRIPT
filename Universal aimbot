@@ -32,7 +32,7 @@ local rainbowSpeed = 0.005
 local aimFov = 150
 local aimParts = {"Head"}
 local aiming = false
-local predictionStrength = 0.003
+local predictionStrength = 0.03
 local smoothing = 0.03
 
 local aimbotEnabled = false
@@ -293,7 +293,7 @@ local predictionstrength = Aimbot:CreateSlider({
     Name = "Prediction Strength",
     Range = {0, 0.2},
     Increment = 0.001,
-    CurrentValue = 0.003,
+    CurrentValue = 0.03,
     Flag = "PredictionStrength",
     Callback = function(Value)
         predictionStrength = Value
