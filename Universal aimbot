@@ -33,7 +33,7 @@ local aimFov = 150
 local aimParts = {"Head"}
 local aiming = false
 local predictionStrength = 0.03
-local smoothing = 0.03
+local smoothing = 0.97
 
 local aimbotEnabled = false
 local wallCheck = true
