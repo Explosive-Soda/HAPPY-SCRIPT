@@ -1,4 +1,4 @@
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/Explosive-Soda/HAPPY-SCRIPT/refs/heads/main/Rayfield%20modified'))()
 
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
