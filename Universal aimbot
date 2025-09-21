@@ -117,14 +117,13 @@ local espcolorpicker = ESP:CreateColorPicker({
     end
 })
 
-local toggleKeySection = ESP:CreateSection("Hotkey")
-
 local espKeybind = ESP:CreateKeybind({
     Name = "ESP Toggle Keybind",
     CurrentKeybind = "T",
     HoldToInteract = false,
     Flag = "ESPKeybind",
     Callback = function(Keybind)
+        espToggleKey = Enum.KeyCode[Keybind]  -- 添加这行
         Rayfield:Notify({
             Title = "Keybind Set",
             Content = "ESP toggle key set to: " .. Keybind,
@@ -169,21 +168,15 @@ end)
 
 -- 快捷键功能
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed then
-        local config = Rayfield:GetConfiguration()
-        if config and config.ESPKeybind then
-            local keyCode = Enum.KeyCode[config.ESPKeybind]
-            if input.KeyCode == keyCode then
-                espEnabled = not espEnabled
-                esptoggle:Set(espEnabled)
-                Rayfield:Notify({
-                    Title = "ESP",
-                    Content = espEnabled and "Enabled" or "Disabled",
-                    Duration = 1,
-                    Image = 4483362458
-                })
-            end
-        end
+    if not gameProcessed and input.KeyCode == espToggleKey then  -- 直接使用变量
+        espEnabled = not espEnabled
+        esptoggle:Set(espEnabled)
+        Rayfield:Notify({
+            Title = "ESP",
+            Content = espEnabled and "Enabled" or "Disabled",
+            Duration = 1,
+            Image = 4483362458
+        })
     end
 end)
 
@@ -663,7 +656,7 @@ local function saveConfiguration()
         ESPEnabled = espEnabled,
         ESPTeamCheck = espTeamCheck,
         ESPColor = {R = roundNumber(espColor.R, 3), G = roundNumber(espColor.G, 3), B = roundNumber(espColor.B, 3)},
-        ESPKeybind = Rayfield:GetConfiguration().ESPKeybind or "T"
+        ESPToggleKey = tostring(espToggleKey)
     }
     
     local success, jsonData = pcall(function()
@@ -726,6 +719,7 @@ local function loadConfiguration()
         if configData.ESPEnabled ~= nil then espEnabled = configData.ESPEnabled end
         if configData.ESPTeamCheck ~= nil then espTeamCheck = configData.ESPTeamCheck end
         if configData.ESPColor ~= nil then espColor = Color3.new(configData.ESPColor.R, configData.ESPColor.G, configData.ESPColor.B) end
+        if configData.ESPToggleKey ~= nil then espToggleKey = Enum.KeyCode[configData.ESPToggleKey] end
         
         -- 更新UI
         if aimbot then aimbot:Set(aimbotEnabled) end
@@ -752,6 +746,7 @@ local function loadConfiguration()
         if esptoggle then esptoggle:Set(espEnabled) end
         if espteamcheck then espteamcheck:Set(espTeamCheck) end
         if espcolorpicker then espcolorpicker:Set(espColor) end
+        if espKeybind then espKeybind:Set(tostring(espToggleKey)) end
         
         fovCircle.Radius = aimFov
         fovCircle.Visible = aimbotEnabled and fovvisibility.CurrentValue
