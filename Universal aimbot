@@ -264,6 +264,7 @@ local aimbot = Aimbot:CreateToggle({
     Flag = "Aimbot",
     Callback = function(Value)
         aimbotEnabled = Value
+        fovCircle.Visible = Value and fovvisibility.CurrentValue
     end
 })
 
@@ -305,7 +306,7 @@ local fovvisibility = Aimbot:CreateToggle({
     CurrentValue = false,
     Flag = "FovVisibility",
     Callback = function(Value)
-        fovCircle.Visible = Value
+        fovCircle.Visible = Value and aimbotEnabled
     end
 })
 
