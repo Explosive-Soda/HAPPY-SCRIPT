@@ -77,7 +77,7 @@ local Window = Rayfield:CreateWindow({
 })
 
 local Aimbot = Window:CreateTab("Aimbot")
-local ESP = Window:CreateTab("ESP")  -- ESP标签
+local ESP = Window:CreateTab("ESP")
 local AntiAim = Window:CreateTab("Anti-Aim")
 local Misc = Window:CreateTab("Misc")
 
@@ -119,46 +119,21 @@ local espcolorpicker = ESP:CreateColorPicker({
 
 local toggleKeySection = ESP:CreateSection("Hotkey")
 
-local toggleKeyButton = ESP:CreateButton({
-    Name = "Set Toggle Key (Current: T)",
-    Callback = function()
+local espKeybind = ESP:CreateKeybind({
+    Name = "ESP Toggle Keybind",
+    CurrentKeybind = "T",
+    HoldToInteract = false,
+    Flag = "ESPKeybind",
+    Callback = function(Keybind)
+        espToggleKey = Enum.KeyCode[Keybind]
         Rayfield:Notify({
-            Title = "Set Toggle Key",
-            Content = "Press any key to set as ESP toggle key",
-            Duration = 3,
-            Image = 4483362458
-        })
-        
-        local connection
-        connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-            if not gameProcessed and input.UserInputType == Enum.UserInputType.Keyboard then
-                espToggleKey = input.KeyCode
-                toggleKeyButton:Set("Set Toggle Key (Current: " .. espToggleKey.Name .. ")")
-                connection:Disconnect()
-                Rayfield:Notify({
-                    Title = "Key Set",
-                    Content = "Toggle key set to: " .. espToggleKey.Name,
-                    Duration = 2,
-                    Image = 4483362458
-                })
-            end
-        end)
-    end
-})
-
--- 快捷键功能
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == espToggleKey then
-        espEnabled = not espEnabled
-        esptoggle:Set(espEnabled)
-        Rayfield:Notify({
-            Title = "ESP",
-            Content = espEnabled and "Enabled" or "Disabled",
+            Title = "Keybind Set",
+            Content = "ESP toggle key set to: " .. Keybind,
             Duration = 1,
             Image = 4483362458
         })
-    end
-end)
+    end,
+})
 
 -- ESP渲染逻辑
 RunService.RenderStepped:Connect(function()
@@ -193,7 +168,21 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- 原有功能代码保持不变...
+-- 快捷键功能
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == espToggleKey then
+        espEnabled = not espEnabled
+        esptoggle:Set(espEnabled)
+        Rayfield:Notify({
+            Title = "ESP",
+            Content = espEnabled and "Enabled" or "Disabled",
+            Duration = 1,
+            Image = 4483362458
+        })
+    end
+end)
+
+-- 原有功能代码
 local function checkTeam(player)
     if teamCheck and player.Team == plr.Team then
         return true
@@ -666,7 +655,6 @@ local function saveConfiguration()
         RandomVeloRange = randomVeloRange,
         SpinBot = spinBot,
         SpinBotSpeed = spinBotSpeed,
-        -- ESP 配置
         ESPEnabled = espEnabled,
         ESPTeamCheck = espTeamCheck,
         ESPColor = {R = roundNumber(espColor.R, 3), G = roundNumber(espColor.G, 3), B = roundNumber(espColor.B, 3)},
@@ -760,7 +748,7 @@ local function loadConfiguration()
         if esptoggle then esptoggle:Set(espEnabled) end
         if espteamcheck then espteamcheck:Set(espTeamCheck) end
         if espcolorpicker then espcolorpicker:Set(espColor) end
-        if toggleKeyButton then toggleKeyButton:Set("Set Toggle Key (Current: " .. (espToggleKey and espToggleKey.Name or "T") .. ")") end
+        if espKeybind then espKeybind:Set(tostring(espToggleKey)) end
         
         fovCircle.Radius = aimFov
         fovCircle.Visible = aimbotEnabled and fovvisibility.CurrentValue
@@ -892,7 +880,7 @@ local function importConfiguration()
                 if esptoggle then esptoggle:Set(espEnabled) end
                 if espteamcheck then espteamcheck:Set(espTeamCheck) end
                 if espcolorpicker then espcolorpicker:Set(espColor) end
-                if toggleKeyButton then toggleKeyButton:Set("Set Toggle Key (Current: " .. (espToggleKey and espToggleKey.Name or "T") .. ")") end
+                if espKeybind then espKeybind:Set(tostring(espToggleKey)) end
                 
                 fovCircle.Radius = aimFov
                 fovCircle.Visible = aimbotEnabled and fovvisibility.CurrentValue
