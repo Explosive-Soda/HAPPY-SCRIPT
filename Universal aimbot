@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 local players = game:GetService("Players")
 local wrk = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
 local plr = players.LocalPlayer
 local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
 local humanoid = plr.Character:FindFirstChild("Humanoid")
@@ -43,13 +44,10 @@ local healthCheck = false
 local minHealth = 1
 
 local antiAim = false
-
 local antiAimAmountX = 0
 local antiAimAmountY = -100
 local antiAimAmountZ = 0
-
 local antiAimMethod = "Reset Velo"
-
 local randomVeloRange = 100
 
 local spinBot = false
@@ -60,6 +58,12 @@ local targetedCircleColor = Color3.fromRGB(0, 255, 0)
 
 local aimViewerEnabled = false
 local ignoreSelf = true
+
+-- ESP 变量
+local espEnabled = false
+local espTeamCheck = false
+local espColor = Color3.new(1, 1, 1)
+local espToggleKey = Enum.KeyCode.T
 
 local Window = Rayfield:CreateWindow({
     Name = "Universal aimbot",
@@ -73,6 +77,7 @@ local Window = Rayfield:CreateWindow({
 })
 
 local Aimbot = Window:CreateTab("Aimbot")
+local ESP = Window:CreateTab("ESP")  -- ESP标签
 local AntiAim = Window:CreateTab("Anti-Aim")
 local Misc = Window:CreateTab("Misc")
 
@@ -85,6 +90,110 @@ fovCircle.Visible = false
 
 local currentTarget = nil
 
+-- ESP 功能
+local esptoggle = ESP:CreateToggle({
+    Name = "ESP",
+    CurrentValue = false,
+    Flag = "ESP",
+    Callback = function(Value)
+        espEnabled = Value
+    end
+})
+
+local espteamcheck = ESP:CreateToggle({
+    Name = "Team Check",
+    CurrentValue = false,
+    Flag = "ESPTeamCheck",
+    Callback = function(Value)
+        espTeamCheck = Value
+    end
+})
+
+local espcolorpicker = ESP:CreateColorPicker({
+    Name = "ESP Color",
+    Color = espColor,
+    Callback = function(Color)
+        espColor = Color
+    end
+})
+
+local toggleKeySection = ESP:CreateSection("Hotkey")
+
+local toggleKeyButton = ESP:CreateButton({
+    Name = "Set Toggle Key (Current: T)",
+    Callback = function()
+        Rayfield:Notify({
+            Title = "Set Toggle Key",
+            Content = "Press any key to set as ESP toggle key",
+            Duration = 3,
+            Image = 4483362458
+        })
+        
+        local connection
+        connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+            if not gameProcessed and input.UserInputType == Enum.UserInputType.Keyboard then
+                espToggleKey = input.KeyCode
+                toggleKeyButton:Set("Set Toggle Key (Current: " .. espToggleKey.Name .. ")")
+                connection:Disconnect()
+                Rayfield:Notify({
+                    Title = "Key Set",
+                    Content = "Toggle key set to: " .. espToggleKey.Name,
+                    Duration = 2,
+                    Image = 4483362458
+                })
+            end
+        end)
+    end
+})
+
+-- 快捷键功能
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == espToggleKey then
+        espEnabled = not espEnabled
+        esptoggle:Set(espEnabled)
+        Rayfield:Notify({
+            Title = "ESP",
+            Content = espEnabled and "Enabled" or "Disabled",
+            Duration = 1,
+            Image = 4483362458
+        })
+    end
+end)
+
+-- ESP渲染逻辑
+RunService.RenderStepped:Connect(function()
+    for _, player in ipairs(players:GetPlayers()) do
+        if player ~= plr and player.Character and player.Character:FindFirstChild("Humanoid") then
+            local char = player.Character
+            local alive = char.Humanoid.Health > 0
+            local isEnemy = not espTeamCheck or player.TeamColor ~= plr.TeamColor
+
+            if alive and isEnemy then
+                if not char:FindFirstChild("ESP_Highlight") then
+                    local hl = Instance.new("Highlight", char)
+                    hl.Name = "ESP_Highlight"
+                    hl.FillColor = espColor
+                    hl.OutlineTransparency = 0.5
+                    hl.OutlineColor = Color3.new(0, 0, 0)
+                    hl.Adornee = char
+                    hl.Enabled = espEnabled
+                else
+                    local hl = char:FindFirstChild("ESP_Highlight")
+                    hl.FillColor = espColor
+                    hl.OutlineTransparency = 0.5
+                    hl.OutlineColor = Color3.new(0, 0, 0)
+                    hl.Enabled = espEnabled
+                end
+            else
+                if char:FindFirstChild("ESP_Highlight") then
+                    char.ESP_Highlight.Enabled = false
+                end
+            end
+        end
+    end
+end)
+
+-- 原有功能代码保持不变...
 local function checkTeam(player)
     if teamCheck and player.Team == plr.Team then
         return true
@@ -264,7 +373,6 @@ local aimbot = Aimbot:CreateToggle({
     Flag = "Aimbot",
     Callback = function(Value)
         aimbotEnabled = Value
-        fovCircle.Visible = false
     end
 })
 
@@ -286,7 +394,7 @@ local smoothingslider = Aimbot:CreateSlider({
     CurrentValue = 3,
     Flag = "Smoothing",
     Callback = function(Value)
-        smoothing = 1 - (math.round(Value) / 100)
+        smoothing = 1 - (Value / 100)
     end,
 })
 
@@ -470,8 +578,6 @@ local randomvelorange = AntiAim:CreateSlider({
     end,
 })
 
--- [< Misc >]
-
 local spinbottoggle = Misc:CreateToggle({
     Name = "Spin-Bot",
     CurrentValue = false,
@@ -526,27 +632,31 @@ local spinbotspeed = Misc:CreateSlider({
     end,
 })
 
--- [配置管理部分 - 添加到Misc标签]
+-- 配置管理部分
 local ConfigSection = Misc:CreateSection("Configuration Management")
-
--- 配置管理变量
 local configFileName = "universal_hub_config.json"
 
--- 保存配置函数
+local function roundNumber(num, decimalPlaces)
+    if not num then return 0 end
+    decimalPlaces = decimalPlaces or 0
+    local multiplier = 10 ^ decimalPlaces
+    return math.floor(num * multiplier + 0.5) / multiplier
+end
+
 local function saveConfiguration()
     local configData = {
         AimbotEnabled = aimbotEnabled,
         AimParts = aimParts,
-        Smoothing = tonumber(string.format("%.6f", smoothing)),
-        PredictionStrength = predictionStrength,
+        Smoothing = roundNumber(smoothing, 6),
+        PredictionStrength = roundNumber(predictionStrength, 6),
         AimFov = aimFov,
         WallCheck = wallCheck,
         StickyAim = stickyAimEnabled,
         TeamCheck = teamCheck,
         HealthCheck = healthCheck,
         MinHealth = minHealth,
-        CircleColor = {R = circleColor.R, G = circleColor.G, B = circleColor.B},
-        TargetedCircleColor = {R = targetedCircleColor.R, G = targetedCircleColor.G, B = targetedCircleColor.B},
+        CircleColor = {R = roundNumber(circleColor.R, 3), G = roundNumber(circleColor.G, 3), B = roundNumber(circleColor.B, 3)},
+        TargetedCircleColor = {R = roundNumber(targetedCircleColor.R, 3), G = roundNumber(targetedCircleColor.G, 3), B = roundNumber(targetedCircleColor.B, 3)},
         RainbowFov = rainbowFov,
         AntiAim = antiAim,
         AntiAimMethod = antiAimMethod,
@@ -555,7 +665,12 @@ local function saveConfiguration()
         AntiAimAmountZ = antiAimAmountZ,
         RandomVeloRange = randomVeloRange,
         SpinBot = spinBot,
-        SpinBotSpeed = spinBotSpeed
+        SpinBotSpeed = spinBotSpeed,
+        -- ESP 配置
+        ESPEnabled = espEnabled,
+        ESPTeamCheck = espTeamCheck,
+        ESPColor = {R = roundNumber(espColor.R, 3), G = roundNumber(espColor.G, 3), B = roundNumber(espColor.B, 3)},
+        ESPToggleKey = tostring(espToggleKey)
     }
     
     local success, jsonData = pcall(function()
@@ -582,15 +697,8 @@ local function saveConfiguration()
     end
 end
 
--- 加载配置函数
 local function loadConfiguration()
     if not isfile(configFileName) then
-        Rayfield:Notify({
-            Title = "Load Failed", 
-            Content = "No saved configuration found!", 
-            Duration = 2, 
-            Image = 4483362458,
-        })
         return false
     end
     
@@ -599,34 +707,18 @@ local function loadConfiguration()
     end)
     
     if success and configData then
-        -- 应用配置
-        if configData.AimbotEnabled ~= nil then
-            aimbotEnabled = configData.AimbotEnabled
-            fovCircle.Visible = aimbotEnabled
-        end
-        
+        if configData.AimbotEnabled ~= nil then aimbotEnabled = configData.AimbotEnabled end
         if configData.AimParts ~= nil then aimParts = configData.AimParts end
-        if configData.Smoothing ~= nil then smoothing = configData.Smoothing end
-        if configData.PredictionStrength ~= nil then predictionStrength = configData.PredictionStrength end
-        if configData.AimFov ~= nil then
-            aimFov = configData.AimFov
-            fovCircle.Radius = aimFov
-        end
+        if configData.Smoothing ~= nil then smoothing = roundNumber(configData.Smoothing, 6) end
+        if configData.PredictionStrength ~= nil then predictionStrength = roundNumber(configData.PredictionStrength, 6) end
+        if configData.AimFov ~= nil then aimFov = configData.AimFov end
         if configData.WallCheck ~= nil then wallCheck = configData.WallCheck end
         if configData.StickyAim ~= nil then stickyAimEnabled = configData.StickyAim end
         if configData.TeamCheck ~= nil then teamCheck = configData.TeamCheck end
         if configData.HealthCheck ~= nil then healthCheck = configData.HealthCheck end
         if configData.MinHealth ~= nil then minHealth = configData.MinHealth end
-        
-        if configData.CircleColor ~= nil then
-            circleColor = Color3.new(configData.CircleColor.R, configData.CircleColor.G, configData.CircleColor.B)
-            fovCircle.Color = circleColor
-        end
-        
-        if configData.TargetedCircleColor ~= nil then
-            targetedCircleColor = Color3.new(configData.TargetedCircleColor.R, configData.TargetedCircleColor.G, configData.TargetedCircleColor.B)
-        end
-        
+        if configData.CircleColor ~= nil then circleColor = Color3.new(configData.CircleColor.R, configData.CircleColor.G, configData.CircleColor.B) end
+        if configData.TargetedCircleColor ~= nil then targetedCircleColor = Color3.new(configData.TargetedCircleColor.R, configData.TargetedCircleColor.G, configData.TargetedCircleColor.B) end
         if configData.RainbowFov ~= nil then rainbowFov = configData.RainbowFov end
         if configData.AntiAim ~= nil then antiAim = configData.AntiAim end
         if configData.AntiAimMethod ~= nil then antiAimMethod = configData.AntiAimMethod end
@@ -637,7 +729,13 @@ local function loadConfiguration()
         if configData.SpinBot ~= nil then spinBot = configData.SpinBot end
         if configData.SpinBotSpeed ~= nil then spinBotSpeed = configData.SpinBotSpeed end
         
-        -- 更新UI元素状态
+        -- ESP 配置加载
+        if configData.ESPEnabled ~= nil then espEnabled = configData.ESPEnabled end
+        if configData.ESPTeamCheck ~= nil then espTeamCheck = configData.ESPTeamCheck end
+        if configData.ESPColor ~= nil then espColor = Color3.new(configData.ESPColor.R, configData.ESPColor.G, configData.ESPColor.B) end
+        if configData.ESPToggleKey ~= nil then espToggleKey = Enum.KeyCode[configData.ESPToggleKey] end
+        
+        -- 更新UI
         if aimbot then aimbot:Set(aimbotEnabled) end
         if aimpart then aimpart:Set(aimParts) end
         if smoothingslider then smoothingslider:Set(math.floor((1 - smoothing) * 100)) end
@@ -659,40 +757,34 @@ local function loadConfiguration()
         if randomvelorange then randomvelorange:Set(randomVeloRange) end
         if spinbottoggle then spinbottoggle:Set(spinBot) end
         if spinbotspeed then spinbotspeed:Set(spinBotSpeed) end
+        if esptoggle then esptoggle:Set(espEnabled) end
+        if espteamcheck then espteamcheck:Set(espTeamCheck) end
+        if espcolorpicker then espcolorpicker:Set(espColor) end
+        if toggleKeyButton then toggleKeyButton:Set("Set Toggle Key (Current: " .. (espToggleKey and espToggleKey.Name or "T") .. ")") end
         
-        Rayfield:Notify({
-            Title = "Configuration Loaded", 
-            Content = "All settings have been loaded successfully!", 
-            Duration = 1, 
-            Image = 4483362458,
-        })
+        fovCircle.Radius = aimFov
+        fovCircle.Visible = aimbotEnabled and fovvisibility.CurrentValue
+        
         return true
     else
-        Rayfield:Notify({
-            Title = "Load Failed", 
-            Content = "Failed to load configuration!", 
-            Duration = 2, 
-            Image = 4483362458,
-        })
         return false
     end
 end
 
--- 导出配置函数
 local function exportConfiguration()
     local configData = {
         AimbotEnabled = aimbotEnabled,
         AimParts = aimParts,
-        Smoothing = smoothing,
-        PredictionStrength = predictionStrength,
+        Smoothing = roundNumber(smoothing, 6),
+        PredictionStrength = roundNumber(predictionStrength, 6),
         AimFov = aimFov,
         WallCheck = wallCheck,
         StickyAim = stickyAimEnabled,
         TeamCheck = teamCheck,
         HealthCheck = healthCheck,
         MinHealth = minHealth,
-        CircleColor = {R = circleColor.R, G = circleColor.G, B = circleColor.B},
-        TargetedCircleColor = {R = targetedCircleColor.R, G = targetedCircleColor.G, B = targetedCircleColor.B},
+        CircleColor = {R = roundNumber(circleColor.R, 3), G = roundNumber(circleColor.G, 3), B = roundNumber(circleColor.B, 3)},
+        TargetedCircleColor = {R = roundNumber(targetedCircleColor.R, 3), G = roundNumber(targetedCircleColor.G, 3), B = roundNumber(targetedCircleColor.B, 3)},
         RainbowFov = rainbowFov,
         AntiAim = antiAim,
         AntiAimMethod = antiAimMethod,
@@ -701,7 +793,11 @@ local function exportConfiguration()
         AntiAimAmountZ = antiAimAmountZ,
         RandomVeloRange = randomVeloRange,
         SpinBot = spinBot,
-        SpinBotSpeed = spinBotSpeed
+        SpinBotSpeed = spinBotSpeed,
+        ESPEnabled = espEnabled,
+        ESPTeamCheck = espTeamCheck,
+        ESPColor = {R = roundNumber(espColor.R, 3), G = roundNumber(espColor.G, 3), B = roundNumber(espColor.B, 3)},
+        ESPToggleKey = tostring(espToggleKey)
     }
     
     local success, jsonData = pcall(function()
@@ -726,7 +822,6 @@ local function exportConfiguration()
     end
 end
 
--- 导入配置函数
 local function importConfiguration()
     Rayfield:Prompt({
         Title = "Import Configuration",
@@ -747,34 +842,18 @@ local function importConfiguration()
             end)
             
             if success and configData then
-                -- 应用导入的配置
-                if configData.AimbotEnabled ~= nil then
-                    aimbotEnabled = configData.AimbotEnabled
-                    fovCircle.Visible = aimbotEnabled
-                end
-                
+                if configData.AimbotEnabled ~= nil then aimbotEnabled = configData.AimbotEnabled end
                 if configData.AimParts ~= nil then aimParts = configData.AimParts end
-                if configData.Smoothing ~= nil then smoothing = configData.Smoothing end
-                if configData.PredictionStrength ~= nil then predictionStrength = configData.PredictionStrength end
-                if configData.AimFov ~= nil then
-                    aimFov = configData.AimFov
-                    fovCircle.Radius = aimFov
-                end
+                if configData.Smoothing ~= nil then smoothing = roundNumber(configData.Smoothing, 6) end
+                if configData.PredictionStrength ~= nil then predictionStrength = roundNumber(configData.PredictionStrength, 6) end
+                if configData.AimFov ~= nil then aimFov = configData.AimFov end
                 if configData.WallCheck ~= nil then wallCheck = configData.WallCheck end
                 if configData.StickyAim ~= nil then stickyAimEnabled = configData.StickyAim end
                 if configData.TeamCheck ~= nil then teamCheck = configData.TeamCheck end
                 if configData.HealthCheck ~= nil then healthCheck = configData.HealthCheck end
                 if configData.MinHealth ~= nil then minHealth = configData.MinHealth end
-                
-                if configData.CircleColor ~= nil then
-                    circleColor = Color3.new(configData.CircleColor.R, configData.CircleColor.G, configData.CircleColor.B)
-                    fovCircle.Color = circleColor
-                end
-                
-                if configData.TargetedCircleColor ~= nil then
-                    targetedCircleColor = Color3.new(configData.TargetedCircleColor.R, configData.TargetedCircleColor.G, configData.TargetedCircleColor.B)
-                end
-                
+                if configData.CircleColor ~= nil then circleColor = Color3.new(configData.CircleColor.R, configData.CircleColor.G, configData.CircleColor.B) end
+                if configData.TargetedCircleColor ~= nil then targetedCircleColor = Color3.new(configData.TargetedCircleColor.R, configData.TargetedCircleColor.G, configData.TargetedCircleColor.B) end
                 if configData.RainbowFov ~= nil then rainbowFov = configData.RainbowFov end
                 if configData.AntiAim ~= nil then antiAim = configData.AntiAim end
                 if configData.AntiAimMethod ~= nil then antiAimMethod = configData.AntiAimMethod end
@@ -784,11 +863,14 @@ local function importConfiguration()
                 if configData.RandomVeloRange ~= nil then randomVeloRange = configData.RandomVeloRange end
                 if configData.SpinBot ~= nil then spinBot = configData.SpinBot end
                 if configData.SpinBotSpeed ~= nil then spinBotSpeed = configData.SpinBotSpeed end
+                if configData.ESPEnabled ~= nil then espEnabled = configData.ESPEnabled end
+                if configData.ESPTeamCheck ~= nil then espTeamCheck = configData.ESPTeamCheck end
+                if configData.ESPColor ~= nil then espColor = Color3.new(configData.ESPColor.R, configData.ESPColor.G, configData.ESPColor.B) end
+                if configData.ESPToggleKey ~= nil then espToggleKey = Enum.KeyCode[configData.ESPToggleKey] end
                 
-                -- 更新UI元素状态
                 if aimbot then aimbot:Set(aimbotEnabled) end
                 if aimpart then aimpart:Set(aimParts) end
-                if smoothingslider then smoothingslider:Set((1 - smoothing) * 100) end
+                if smoothingslider then smoothingslider:Set(math.floor((1 - smoothing) * 100)) end
                 if predictionstrength then predictionstrength:Set(predictionStrength) end
                 if aimbotfov then aimbotfov:Set(aimFov) end
                 if wallcheck then wallcheck:Set(wallCheck) end
@@ -807,6 +889,13 @@ local function importConfiguration()
                 if randomvelorange then randomvelorange:Set(randomVeloRange) end
                 if spinbottoggle then spinbottoggle:Set(spinBot) end
                 if spinbotspeed then spinbotspeed:Set(spinBotSpeed) end
+                if esptoggle then esptoggle:Set(espEnabled) end
+                if espteamcheck then espteamcheck:Set(espTeamCheck) end
+                if espcolorpicker then espcolorpicker:Set(espColor) end
+                if toggleKeyButton then toggleKeyButton:Set("Set Toggle Key (Current: " .. (espToggleKey and espToggleKey.Name or "T") .. ")") end
+                
+                fovCircle.Radius = aimFov
+                fovCircle.Visible = aimbotEnabled and fovvisibility.CurrentValue
                 
                 Rayfield:Notify({
                     Title = "Config Imported", 
@@ -826,39 +915,33 @@ local function importConfiguration()
     end)
 end
 
--- 保存配置按钮
 Misc:CreateButton({
     Name = "💾 Save Current Config",
     Callback = saveConfiguration
 })
 
--- 加载配置按钮
 Misc:CreateButton({
     Name = "📂 Load Saved Config", 
     Callback = loadConfiguration
 })
 
--- 导出配置按钮
 Misc:CreateButton({
     Name = "📤 Export Config to Clipboard",
     Callback = exportConfiguration
 })
 
--- 导入配置按钮
 Misc:CreateButton({
     Name = "📥 Import Config from Clipboard",
     Callback = importConfiguration
 })
 
--- 自动加载配置
 spawn(function()
-    wait(2) -- 等待UI完全加载
+    wait(2)
     if isfile(configFileName) then
         loadConfiguration()
     end
 end)
 
--- 状态指示器
 local statusText = Drawing.new("Text")
 statusText.Visible = true
 statusText.Color = Color3.fromRGB(255, 255, 255)
@@ -866,16 +949,15 @@ statusText.Size = 16
 statusText.Position = Vector2.new(10, 10)
 statusText.Text = "Universal Hub - Ready"
 
--- 更新状态函数
 local function updateStatus()
     local status = "Universal Hub | "
     if aimbotEnabled then status = status .. "AIM " end
     if antiAim then status = status .. "AA " end
     if spinBot then status = status .. "SPIN " end
+    if espEnabled then status = status .. "ESP " end
     statusText.Text = status
 end
 
--- 定期更新状态
 spawn(function()
     while true do
         updateStatus()
@@ -883,13 +965,17 @@ spawn(function()
     end
 end)
 
--- 清理函数
 local function cleanup()
     if fovCircle then fovCircle:Remove() end
     if statusText then statusText:Remove() end
+    
+    for _, player in ipairs(players:GetPlayers()) do
+        if player.Character and player.Character:FindFirstChild("ESP_Highlight") then
+            player.Character.ESP_Highlight:Destroy()
+        end
+    end
 end
 
--- 监听玩家离开事件
 plr:GetPropertyChangedSignal("Parent"):Connect(function()
     if not plr.Parent then
         cleanup()
