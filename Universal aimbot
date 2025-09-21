@@ -942,32 +942,8 @@ spawn(function()
     end
 end)
 
-local statusText = Drawing.new("Text")
-statusText.Visible = true
-statusText.Color = Color3.fromRGB(255, 255, 255)
-statusText.Size = 16
-statusText.Position = Vector2.new(10, 10)
-statusText.Text = "Universal Hub - Ready"
-
-local function updateStatus()
-    local status = "Universal Hub | "
-    if aimbotEnabled then status = status .. "AIM " end
-    if antiAim then status = status .. "AA " end
-    if spinBot then status = status .. "SPIN " end
-    if espEnabled then status = status .. "ESP " end
-    statusText.Text = status
-end
-
-spawn(function()
-    while true do
-        updateStatus()
-        wait(0.5)
-    end
-end)
-
 local function cleanup()
     if fovCircle then fovCircle:Remove() end
-    if statusText then statusText:Remove() end
     
     for _, player in ipairs(players:GetPlayers()) do
         if player.Character and player.Character:FindFirstChild("ESP_Highlight") then
