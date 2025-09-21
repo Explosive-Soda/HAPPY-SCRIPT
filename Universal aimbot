@@ -133,6 +133,34 @@ local espKeybind = ESP:CreateKeybind({
     end,
 })
 
+local function handleESPKeybind()
+    local connection
+    connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if not gameProcessed and input.UserInputType == Enum.UserInputType.Keyboard then
+            local success, config = pcall(function()
+                return Rayfield:GetConfiguration()
+            end)
+            if success and config and config.ESPKeybind then
+                if input.KeyCode == Enum.KeyCode[config.ESPKeybind] then
+                    espEnabled = not espEnabled
+                    esptoggle:Set(espEnabled)
+                    Rayfield:Notify({
+                        Title = "ESP",
+                        Content = espEnabled and "Enabled" or "Disabled",
+                        Duration = 1,
+                        Image = 4483362458
+                    })
+                end
+            end
+        end
+    end)
+    
+    return connection
+end
+
+-- 启动快捷键监听
+local espKeyConnection = handleESPKeybind()
+
 -- ESP渲染逻辑
 RunService.RenderStepped:Connect(function()
     for _, player in ipairs(players:GetPlayers()) do
@@ -163,20 +191,6 @@ RunService.RenderStepped:Connect(function()
                 end
             end
         end
-    end
-end)
-
--- 快捷键功能
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == espToggleKey then  -- 直接使用变量
-        espEnabled = not espEnabled
-        esptoggle:Set(espEnabled)
-        Rayfield:Notify({
-            Title = "ESP",
-            Content = espEnabled and "Enabled" or "Disabled",
-            Duration = 1,
-            Image = 4483362458
-        })
     end
 end)
 
@@ -656,7 +670,7 @@ local function saveConfiguration()
         ESPEnabled = espEnabled,
         ESPTeamCheck = espTeamCheck,
         ESPColor = {R = roundNumber(espColor.R, 3), G = roundNumber(espColor.G, 3), B = roundNumber(espColor.B, 3)},
-        ESPToggleKey = tostring(espToggleKey)
+        ESPKeybind = Rayfield:GetConfiguration().ESPKeybind or "T"
     }
     
     local success, jsonData = pcall(function()
