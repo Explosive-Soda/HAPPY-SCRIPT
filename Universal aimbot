@@ -55,8 +55,8 @@ local randomVeloRange = 100
 local spinBot = false
 local spinBotSpeed = 20
 
-local circleColor = Color3.fromRGB(255, 0, 0)
-local targetedCircleColor = Color3.fromRGB(0, 255, 0)
+local circleColor = Color3.fromRGB(255, 255, 255)
+local targetedCircleColor = Color3.fromRGB(255, 0, 0)
 
 local aimViewerEnabled = false
 local ignoreSelf = true
