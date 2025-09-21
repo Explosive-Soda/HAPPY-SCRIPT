@@ -264,7 +264,7 @@ local aimbot = Aimbot:CreateToggle({
     Flag = "Aimbot",
     Callback = function(Value)
         aimbotEnabled = Value
-        fovCircle.Visible = Value and fovvisibility.CurrentValue
+        fovCircle.Visible = false
     end
 })
 
@@ -286,7 +286,7 @@ local smoothingslider = Aimbot:CreateSlider({
     CurrentValue = 3,
     Flag = "Smoothing",
     Callback = function(Value)
-        smoothing = 1 - (Value / 100)
+        smoothing = 1 - (math.round(Value) / 100)
     end,
 })
 
