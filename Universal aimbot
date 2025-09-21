@@ -537,7 +537,7 @@ local function saveConfiguration()
     local configData = {
         AimbotEnabled = aimbotEnabled,
         AimParts = aimParts,
-        Smoothing = smoothing,
+        Smoothing = tonumber(string.format("%.6f", smoothing)),
         PredictionStrength = predictionStrength,
         AimFov = aimFov,
         WallCheck = wallCheck,
@@ -640,7 +640,7 @@ local function loadConfiguration()
         -- 更新UI元素状态
         if aimbot then aimbot:Set(aimbotEnabled) end
         if aimpart then aimpart:Set(aimParts) end
-        if smoothingslider then smoothingslider:Set((1 - smoothing) * 100) end
+        if smoothingslider then smoothingslider:Set(math.floor((1 - smoothing) * 100)) end
         if predictionstrength then predictionstrength:Set(predictionStrength) end
         if aimbotfov then aimbotfov:Set(aimFov) end
         if wallcheck then wallcheck:Set(wallCheck) end
