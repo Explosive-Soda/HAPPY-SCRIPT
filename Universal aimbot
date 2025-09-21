@@ -510,7 +510,7 @@ local espToggle = ESP:CreateToggle({
     end
 })
 
-ESP:CreateToggle({
+local espTeamCheckToggle = ESP:CreateToggle({
     Name = "Team Check",
     CurrentValue = false,
     Flag = "ESPTeamCheck",
@@ -522,7 +522,7 @@ ESP:CreateToggle({
     end
 })
 
-ESP:CreateColorPicker({
+local espColorPicker = ESP:CreateColorPicker({
     Name = "ESP Color",
     Color = espColor,
     Callback = function(Color)
@@ -686,6 +686,9 @@ local function saveConfiguration()
         CircleColor = {R = circleColor.R, G = circleColor.G, B = circleColor.B},
         TargetedCircleColor = {R = targetedCircleColor.R, G = targetedCircleColor.G, B = targetedCircleColor.B},
         RainbowFov = rainbowFov,
+        ESPEnabled = espEnabled,
+        ESPTeamCheck = espTeamCheck,
+        ESPColor = {R = espColor.R, G = espColor.G, B = espColor.B},
         AntiAim = antiAim,
         AntiAimMethod = antiAimMethod,
         AntiAimAmountX = antiAimAmountX,
@@ -766,6 +769,21 @@ local function loadConfiguration()
         end
         
         if configData.RainbowFov ~= nil then rainbowFov = configData.RainbowFov end
+        if configData.ESPEnabled ~= nil then espEnabled = configData.ESPEnabled end
+        if configData.ESPTeamCheck ~= nil then espTeamCheck = configData.ESPTeamCheck end
+        if configData.ESPColor ~= nil then
+          espColor = Color3.new(configData.ESPColor.R, configData.ESPColor.G, configData.ESPColor.B)
+        end
+        if espToggle then espToggle:Set(espEnabled) end
+        if espTeamCheckToggle then espTeamCheckToggle:Set(espTeamCheck) end
+        if espColorPicker then espColorPicker:Set(espColor) end
+        if espEnabled then
+          updateESP()
+        else
+          for _, hl in pairs(espHighlights) do
+              hl.Enabled = false
+          end
+        end
         if configData.AntiAim ~= nil then antiAim = configData.AntiAim end
         if configData.AntiAimMethod ~= nil then antiAimMethod = configData.AntiAimMethod end
         if configData.AntiAimAmountX ~= nil then antiAimAmountX = configData.AntiAimAmountX end
@@ -832,6 +850,9 @@ local function exportConfiguration()
         CircleColor = {R = circleColor.R, G = circleColor.G, B = circleColor.B},
         TargetedCircleColor = {R = targetedCircleColor.R, G = targetedCircleColor.G, B = targetedCircleColor.B},
         RainbowFov = rainbowFov,
+        ESPEnabled = espEnabled,
+        ESPTeamCheck = espTeamCheck,
+        ESPColor = {R = espColor.R, G = espColor.G, B = espColor.B},
         AntiAim = antiAim,
         AntiAimMethod = antiAimMethod,
         AntiAimAmountX = antiAimAmountX,
@@ -914,6 +935,11 @@ local function importConfiguration()
                 end
                 
                 if configData.RainbowFov ~= nil then rainbowFov = configData.RainbowFov end
+                if configData.ESPEnabled ~= nil then espEnabled = configData.ESPEnabled end
+                if configData.ESPTeamCheck ~= nil then espTeamCheck = configData.ESPTeamCheck end
+                if configData.ESPColor ~= nil then
+                  espColor = Color3.new(configData.ESPColor.R, configData.ESPColor.G, configData.ESPColor.B)
+                end
                 if configData.AntiAim ~= nil then antiAim = configData.AntiAim end
                 if configData.AntiAimMethod ~= nil then antiAimMethod = configData.AntiAimMethod end
                 if configData.AntiAimAmountX ~= nil then antiAimAmountX = configData.AntiAimAmountX end
