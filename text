@@ -541,7 +541,7 @@ end
 -- 玩家连接/断开处理
 local function onPlayerAdded(player)
     player.CharacterAdded:Connect(function(character)
-        if espEnabled then
+        if espEnabled or boxESPEnabled then
             updateESP()
         end
     end)
@@ -551,6 +551,12 @@ local function onPlayerAdded(player)
             espHighlights[player]:Destroy()
             espHighlights[player] = nil
         end
+        if boxESPDrawings[player] then
+            for _, line in pairs(boxESPDrawings[player]) do
+                line:Remove()
+            end
+            boxESPDrawings[player] = nil
+        end
     end)
 end
 
@@ -558,6 +564,12 @@ local function onPlayerRemoving(player)
     if espHighlights[player] then
         espHighlights[player]:Destroy()
         espHighlights[player] = nil
+    end
+    if boxESPDrawings[player] then
+        for _, line in pairs(boxESPDrawings[player]) do
+            line:Remove()
+        end
+        boxESPDrawings[player] = nil
     end
 end
 
