@@ -14,14 +14,20 @@ local hideKey = Enum.KeyCode.RightAlt  -- 默认快捷键为 RightAlt
 local listeningForToggleKey = false
 local listeningForHideKey = false
 
+-- 新增Box ESP变量
+local boxESPEnabled = false
+local boxColor = Color3.new(1, 1, 1)
+local boxThickness = 1
+local boxESPDrawings = {}
+
 -- GUI 创建
 local gui = Instance.new("ScreenGui", game.CoreGui)
 gui.Name = "UniversalESP"
 gui.ResetOnSpawn = false
 
 local frame = Instance.new("Frame", gui)
-frame.Position = UDim2.new(0.5, -100, 0.5, -100)
-frame.Size = UDim2.new(0, 200, 0, 180)
+frame.Position = UDim2.new(0.5, -100, 0.5, -150)  -- 增加高度以容纳新控件
+frame.Size = UDim2.new(0, 200, 0, 250)  -- 增加高度
 frame.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
 frame.BorderColor3 = Color3.fromRGB(255, 255, 255)
 
@@ -79,7 +85,7 @@ local function makeSwitch(y, stateCallback)
 	updateState()
 end
 
-local function makeRGB(y)
+local function makeRGB(y, isBoxColor)
 	local boxes = {}
 	for i, colorName in ipairs({"R", "G", "B"}) do
 		local box = Instance.new("TextBox", frame)
@@ -96,7 +102,19 @@ local function makeRGB(y)
 			local r = tonumber(boxes[1].Text) or 255
 			local g = tonumber(boxes[2].Text) or 255
 			local b = tonumber(boxes[3].Text) or 255
-			color = Color3.fromRGB(r, g, b)
+			if isBoxColor then
+				boxColor = Color3.fromRGB(r, g, b)
+				-- 更新所有现有的Box颜色
+				for _, boxDrawing in pairs(boxESPDrawings) do
+					for _, line in pairs(boxDrawing) do
+						if line then
+							line.Color = boxColor
+						end
+					end
+				end
+			else
+				color = Color3.fromRGB(r, g, b)
+			end
 		end)
 		table.insert(boxes, box)
 	end
@@ -138,14 +156,207 @@ end
 makeLabel("ESP", 10)
 makeSwitch(10, function(val) espEnabled = val end)
 
-makeLabel("TEAMCHECK", 40)
-makeSwitch(40, function(val) teamCheck = val end)
+makeLabel("BOX ESP", 40)  -- 新增Box ESP开关
+makeSwitch(40, function(val) boxESPEnabled = val end)
 
-makeLabel("COLOUR", 70)
-makeRGB(70)
+makeLabel("TEAMCHECK", 70)
+makeSwitch(70, function(val) teamCheck = val end)
 
-makeKeyButton(100, "TOGGLE KEY", true)
-makeKeyButton(130, "HIDE KEY", false)
+makeLabel("ESP COLOUR", 100)
+makeRGB(100, false)  -- ESP颜色
+
+makeLabel("BOX COLOUR", 130)  -- 新增Box颜色
+makeRGB(130, true)  -- Box颜色
+
+-- 新增Box厚度滑块
+makeLabel("BOX THICK", 160)
+local thicknessBox = Instance.new("TextBox", frame)
+thicknessBox.Position = UDim2.new(0, 90, 0, 160)
+thicknessBox.Size = UDim2.new(0, 40, 0, 20)
+thicknessBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+thicknessBox.BorderColor3 = Color3.new(1, 1, 1)
+thicknessBox.Text = "1"
+thicknessBox.Font = Enum.Font.SourceSans
+thicknessBox.TextSize = 14
+thicknessBox.TextColor3 = Color3.new(0, 0, 0)
+thicknessBox.ClearTextOnFocus = true
+thicknessBox.FocusLost:Connect(function()
+	local thickness = tonumber(thicknessBox.Text) or 1
+	boxThickness = math.clamp(thickness, 1, 5)
+	thicknessBox.Text = tostring(boxThickness)
+	-- 更新所有现有的Box厚度
+	if boxESPEnabled then
+		for _, boxDrawing in pairs(boxESPDrawings) do
+			for _, line in pairs(boxDrawing) do
+				if line then
+					line.Thickness = boxThickness
+				end
+			end
+		end
+	end
+end)
+
+makeKeyButton(190, "TOGGLE KEY", true)
+makeKeyButton(220, "HIDE KEY", false)
+
+-- Box ESP功能
+local function updateBoxESP()
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") then
+			local char = player.Character
+			local alive = char.Humanoid.Health > 0
+			local isEnemy = not teamCheck or player.TeamColor ~= LocalPlayer.TeamColor
+
+			if alive and isEnemy then
+				if boxESPEnabled then
+					local humanoidRootPart = char:FindFirstChild("HumanoidRootPart")
+					if humanoidRootPart then
+						if not boxESPDrawings[player] then
+							-- 创建Box ESP绘图
+							local box = {
+								Top = Drawing.new("Line"),
+								Bottom = Drawing.new("Line"),
+								Left = Drawing.new("Line"),
+								Right = Drawing.new("Line")
+							}
+							
+							-- 设置所有线的属性
+							for _, line in pairs(box) do
+								line.Thickness = boxThickness
+								line.Color = boxColor
+								line.Visible = true
+							end
+							
+							boxESPDrawings[player] = box
+						end
+						
+						-- 更新Box位置
+						local box = boxESPDrawings[player]
+						local head = char:FindFirstChild("Head")
+						local torso = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
+						
+						if head and torso then
+							local headPos, headVisible = workspace.CurrentCamera:WorldToViewportPoint(head.Position)
+							local torsoPos, torsoVisible = workspace.CurrentCamera:WorldToViewportPoint(torso.Position)
+							
+							if headVisible and torsoVisible then
+								local height = math.abs(headPos.Y - torsoPos.Y) * 2.5
+								local width = height * 0.6
+								
+								local topY = headPos.Y - height * 0.3
+								local bottomY = torsoPos.Y + height * 0.2
+								local leftX = torsoPos.X - width / 2
+								local rightX = torsoPos.X + width / 2
+								
+								-- 更新Box线条位置
+								if box.Top then
+									box.Top.From = Vector2.new(leftX, topY)
+									box.Top.To = Vector2.new(rightX, topY)
+								end
+								
+								if box.Bottom then
+									box.Bottom.From = Vector2.new(leftX, bottomY)
+									box.Bottom.To = Vector2.new(rightX, bottomY)
+								end
+								
+								if box.Left then
+									box.Left.From = Vector2.new(leftX, topY)
+									box.Left.To = Vector2.new(leftX, bottomY)
+								end
+								
+								if box.Right then
+									box.Right.From = Vector2.new(rightX, topY)
+									box.Right.To = Vector2.new(rightX, bottomY)
+								end
+								
+								-- 设置所有线可见
+								for _, line in pairs(box) do
+									if line then
+										line.Visible = true
+									end
+								end
+							else
+								-- 如果角色不在视野内，隐藏Box
+								for _, line in pairs(box) do
+									if line then
+										line.Visible = false
+									end
+								end
+							end
+						end
+					end
+				else
+					-- 如果Box ESP禁用，隐藏该玩家的Box
+					if boxESPDrawings[player] then
+						for _, line in pairs(boxESPDrawings[player]) do
+							if line then
+								line.Visible = false
+							end
+						end
+					end
+				end
+			else
+				-- 如果角色死亡或不符合条件，隐藏Box
+				if boxESPDrawings[player] then
+					for _, line in pairs(boxESPDrawings[player]) do
+						if line then
+							line.Visible = false
+						end
+					end
+				end
+			end
+		else
+			-- 玩家不存在或没有角色，清理Box
+			if boxESPDrawings[player] then
+				for _, line in pairs(boxESPDrawings[player]) do
+					if line then
+						line:Remove()
+					end
+				end
+				boxESPDrawings[player] = nil
+			end
+		end
+	end
+end
+
+-- 玩家连接/断开处理
+local function onPlayerAdded(player)
+	player.CharacterAdded:Connect(function(character)
+		-- 不需要在这里做特殊处理，会在渲染循环中处理
+	end)
+	
+	player.CharacterRemoving:Connect(function()
+		-- 清理Box ESP
+		if boxESPDrawings[player] then
+			for _, line in pairs(boxESPDrawings[player]) do
+				if line then
+					line:Remove()
+				end
+			end
+			boxESPDrawings[player] = nil
+		end
+	end)
+end
+
+local function onPlayerRemoving(player)
+	-- 清理Box ESP
+	if boxESPDrawings[player] then
+		for _, line in pairs(boxESPDrawings[player]) do
+			if line then
+				line:Remove()
+			end
+		end
+		boxESPDrawings[player] = nil
+	end
+end
+
+-- 初始化现有玩家
+for _, player in ipairs(Players:GetPlayers()) do
+	onPlayerAdded(player)
+end
+
+Players.PlayerAdded:Connect(onPlayerAdded)
+Players.PlayerRemoving:Connect(onPlayerRemoving)
 
 -- GUI 显隐控制
 UserInputService.InputBegan:Connect(function(input, gp)
@@ -189,6 +400,7 @@ end)
 
 -- 实时刷新 ESP 并添加黑色轮廓
 RunService.RenderStepped:Connect(function()
+	-- 更新Highlight ESP
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") then
 			local char = player.Character
@@ -217,5 +429,39 @@ RunService.RenderStepped:Connect(function()
 				end
 			end
 		end
+	end
+	
+	-- 更新Box ESP
+	if boxESPEnabled then
+		updateBoxESP()
+	else
+		-- 关闭所有Box ESP
+		for _, box in pairs(boxESPDrawings) do
+			for _, line in pairs(box) do
+				if line then
+					line.Visible = false
+				end
+			end
+		end
+	end
+end)
+
+-- 清理函数
+local function cleanup()
+	-- 清理Box ESP
+	for _, box in pairs(boxESPDrawings) do
+		for _, line in pairs(box) do
+			if line then
+				line:Remove()
+			end
+		end
+	end
+	boxESPDrawings = {}
+end
+
+-- 监听玩家离开事件
+LocalPlayer:GetPropertyChangedSignal("Parent"):Connect(function()
+	if not LocalPlayer.Parent then
+		cleanup()
 	end
 end)
