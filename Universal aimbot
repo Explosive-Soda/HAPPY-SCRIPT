@@ -401,6 +401,10 @@ local espEnabled = false
 local espTeamCheck = false
 local espColor = Color3.fromRGB(255, 255, 255)
 local espHighlights = {}
+local boxESPEnabled = false
+local boxESPColor = Color3.fromRGB(255, 255, 255)
+local boxESPThickness = 1
+local boxESPDrawings = {}
 
 -- ESP功能
 local function updateESP()
@@ -411,7 +415,7 @@ local function updateESP()
             local isEnemy = not espTeamCheck or player.Team ~= plr.Team
 
             if alive and isEnemy then
-                -- 确保角色有一个 Highlight 组件
+                -- Highlight组件逻辑
                 if not espHighlights[player] then
                     local hl = Instance.new("Highlight")
                     hl.Parent = char
@@ -427,23 +431,108 @@ local function updateESP()
                     hl.OutlineTransparency = 0.5
                     hl.OutlineColor = Color3.new(0, 0, 0)
                     hl.Enabled = espEnabled
-                    -- 确保Highlight在正确的角色上
                     if hl.Parent ~= char then
                         hl.Parent = char
                         hl.Adornee = char
                     end
                 end
+
+                -- 新增Box ESP逻辑
+                if boxESPEnabled then
+                    local humanoidRootPart = char:FindFirstChild("HumanoidRootPart")
+                    if humanoidRootPart then
+                        if not boxESPDrawings[player] then
+                            -- 创建Box ESP绘图
+                            local box = {
+                                Top = Drawing.new("Line"),
+                                Bottom = Drawing.new("Line"),
+                                Left = Drawing.new("Line"),
+                                Right = Drawing.new("Line")
+                            }
+                            
+                            -- 设置所有线的属性
+                            for _, line in pairs(box) do
+                                line.Thickness = boxESPThickness
+                                line.Color = boxESPColor
+                                line.Visible = true
+                            end
+                            
+                            boxESPDrawings[player] = box
+                        end
+                        
+                        -- 更新Box位置
+                        local box = boxESPDrawings[player]
+                        local head = char:FindFirstChild("Head")
+                        local torso = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
+                        
+                        if head and torso then
+                            local headPos, headVisible = camera:WorldToViewportPoint(head.Position)
+                            local torsoPos, torsoVisible = camera:WorldToViewportPoint(torso.Position)
+                            
+                            if headVisible and torsoVisible then
+                                local height = math.abs(headPos.Y - torsoPos.Y) * 2.5
+                                local width = height * 0.6
+                                
+                                local topY = headPos.Y - height * 0.3
+                                local bottomY = torsoPos.Y + height * 0.2
+                                local leftX = torsoPos.X - width / 2
+                                local rightX = torsoPos.X + width / 2
+                                
+                                -- 更新Box线条位置
+                                box.Top.From = Vector2.new(leftX, topY)
+                                box.Top.To = Vector2.new(rightX, topY)
+                                
+                                box.Bottom.From = Vector2.new(leftX, bottomY)
+                                box.Bottom.To = Vector2.new(rightX, bottomY)
+                                
+                                box.Left.From = Vector2.new(leftX, topY)
+                                box.Left.To = Vector2.new(leftX, bottomY)
+                                
+                                box.Right.From = Vector2.new(rightX, topY)
+                                box.Right.To = Vector2.new(rightX, bottomY)
+                                
+                                -- 设置所有线可见
+                                for _, line in pairs(box) do
+                                    line.Visible = true
+                                end
+                            else
+                                -- 如果角色不在视野内，隐藏Box
+                                for _, line in pairs(box) do
+                                    line.Visible = false
+                                end
+                            end
+                        end
+                    end
+                else
+                    -- 如果Box ESP禁用，隐藏该玩家的Box
+                    if boxESPDrawings[player] then
+                        for _, line in pairs(boxESPDrawings[player]) do
+                            line.Visible = false
+                        end
+                    end
+                end
             else
-                -- 如果角色死亡或不符合条件，关闭 Highlight
+                -- 如果角色死亡或不符合条件，关闭 Highlight 和 Box
                 if espHighlights[player] then
                     espHighlights[player].Enabled = false
                 end
+                if boxESPDrawings[player] then
+                    for _, line in pairs(boxESPDrawings[player]) do
+                        line.Visible = false
+                    end
+                end
             end
         else
-            -- 玩家不存在或没有角色，清理Highlight
+            -- 玩家不存在或没有角色，清理Highlight和Box
             if espHighlights[player] then
                 espHighlights[player]:Destroy()
                 espHighlights[player] = nil
+            end
+            if boxESPDrawings[player] then
+                for _, line in pairs(boxESPDrawings[player]) do
+                    line:Remove()
+                end
+                boxESPDrawings[player] = nil
             end
         end
     end
@@ -452,7 +541,7 @@ end
 -- 玩家连接/断开处理
 local function onPlayerAdded(player)
     player.CharacterAdded:Connect(function(character)
-        if espEnabled then
+        if espEnabled or boxESPEnabled then
             updateESP()
         end
     end)
@@ -462,6 +551,12 @@ local function onPlayerAdded(player)
             espHighlights[player]:Destroy()
             espHighlights[player] = nil
         end
+        if boxESPDrawings[player] then
+            for _, line in pairs(boxESPDrawings[player]) do
+                line:Remove()
+            end
+            boxESPDrawings[player] = nil
+        end
     end)
 end
 
@@ -469,6 +564,12 @@ local function onPlayerRemoving(player)
     if espHighlights[player] then
         espHighlights[player]:Destroy()
         espHighlights[player] = nil
+    end
+    if boxESPDrawings[player] then
+        for _, line in pairs(boxESPDrawings[player]) do
+            line:Remove()
+        end
+        boxESPDrawings[player] = nil
     end
 end
 
@@ -482,12 +583,17 @@ players.PlayerRemoving:Connect(onPlayerRemoving)
 
 -- ESP渲染循环
 RunService.RenderStepped:Connect(function()
-    if espEnabled then
+    if espEnabled or boxESPEnabled then
         updateESP()
     else
-        -- 关闭所有Highlight
+        -- 关闭所有Highlight和Box
         for _, hl in pairs(espHighlights) do
             hl.Enabled = false
+        end
+        for _, box in pairs(boxESPDrawings) do
+            for _, line in pairs(box) do
+                line.Visible = false
+            end
         end
     end
 end)
@@ -510,13 +616,33 @@ local espToggle = ESP:CreateToggle({
     end
 })
 
+-- 新增Box ESP开关
+local boxESPToggle = ESP:CreateToggle({
+    Name = "Box ESP",
+    CurrentValue = false,
+    Flag = "BoxESP",
+    Callback = function(Value)
+        boxESPEnabled = Value
+        if not Value then
+            -- 关闭所有Box ESP
+            for _, box in pairs(boxESPDrawings) do
+                for _, line in pairs(box) do
+                    line.Visible = false
+                end
+            end
+        else
+            updateESP()
+        end
+    end
+})
+
 local espTeamCheckToggle = ESP:CreateToggle({
     Name = "Team Check",
     CurrentValue = false,
     Flag = "ESPTeamCheck",
     Callback = function(Value)
         espTeamCheck = Value
-        if espEnabled then
+        if espEnabled or boxESPEnabled then
             updateESP()
         end
     end
@@ -531,6 +657,41 @@ local espColorPicker = ESP:CreateColorPicker({
             updateESP()
         end
     end
+})
+
+-- 新增Box ESP颜色选择器
+local boxESPColorPicker = ESP:CreateColorPicker({
+    Name = "Box ESP Color",
+    Color = boxESPColor,
+    Callback = function(Color)
+        boxESPColor = Color
+        if boxESPEnabled then
+            for _, box in pairs(boxESPDrawings) do
+                for _, line in pairs(box) do
+                    line.Color = Color
+                end
+            end
+        end
+    end
+})
+
+-- 新增Box ESP线条粗细滑块
+local boxESPThicknessSlider = ESP:CreateSlider({
+    Name = "Box ESP Thickness",
+    Range = {1, 5},
+    Increment = 1,
+    CurrentValue = 1,
+    Flag = "BoxESPThickness",
+    Callback = function(Value)
+        boxESPThickness = Value
+        if boxESPEnabled then
+            for _, box in pairs(boxESPDrawings) do
+                for _, line in pairs(box) do
+                    line.Thickness = Value
+                end
+            end
+        end
+    end,
 })
 
 local antiaimtoggle = AntiAim:CreateToggle({
@@ -689,6 +850,9 @@ local function saveConfiguration()
         ESPEnabled = espEnabled,
         ESPTeamCheck = espTeamCheck,
         ESPColor = {R = espColor.R, G = espColor.G, B = espColor.B},
+        BoxESPEnabled = boxESPEnabled,
+        BoxESPColor = {R = boxESPColor.R, G = boxESPColor.G, B = boxESPColor.B},
+        BoxESPThickness = boxESPThickness,
         AntiAim = antiAim,
         AntiAimMethod = antiAimMethod,
         AntiAimAmountX = antiAimAmountX,
@@ -774,14 +938,27 @@ local function loadConfiguration()
         if configData.ESPColor ~= nil then
           espColor = Color3.new(configData.ESPColor.R, configData.ESPColor.G, configData.ESPColor.B)
         end
+        if configData.BoxESPEnabled ~= nil then boxESPEnabled = configData.BoxESPEnabled end
+        if configData.BoxESPColor ~= nil then
+          boxESPColor = Color3.new(configData.BoxESPColor.R, configData.BoxESPColor.G, configData.BoxESPColor.B)
+        end
+        if configData.BoxESPThickness ~= nil then boxESPThickness = configData.BoxESPThickness end
         if espToggle then espToggle:Set(espEnabled) end
         if espTeamCheckToggle then espTeamCheckToggle:Set(espTeamCheck) end
         if espColorPicker then espColorPicker:Set(espColor) end
-        if espEnabled then
+        if boxESPToggle then boxESPToggle:Set(boxESPEnabled) end
+        if boxESPColorPicker then boxESPColorPicker:Set(boxESPColor) end
+        if boxESPThicknessSlider then boxESPThicknessSlider:Set(boxESPThickness) end
+        if espEnabled or boxESPEnabled then
           updateESP()
         else
           for _, hl in pairs(espHighlights) do
               hl.Enabled = false
+          end
+          for _, box in pairs(boxESPDrawings) do
+              for _, line in pairs(box) do
+                  line.Visible = false
+              end
           end
         end
         if configData.AntiAim ~= nil then antiAim = configData.AntiAim end
@@ -853,6 +1030,9 @@ local function exportConfiguration()
         ESPEnabled = espEnabled,
         ESPTeamCheck = espTeamCheck,
         ESPColor = {R = espColor.R, G = espColor.G, B = espColor.B},
+        BoxESPEnabled = boxESPEnabled,
+        BoxESPColor = {R = boxESPColor.R, G = boxESPColor.G, B = boxESPColor.B},
+        BoxESPThickness = boxESPThickness,
         AntiAim = antiAim,
         AntiAimMethod = antiAimMethod,
         AntiAimAmountX = antiAimAmountX,
@@ -940,6 +1120,11 @@ local function importConfiguration()
                 if configData.ESPColor ~= nil then
                   espColor = Color3.new(configData.ESPColor.R, configData.ESPColor.G, configData.ESPColor.B)
                 end
+                if configData.BoxESPEnabled ~= nil then boxESPEnabled = configData.BoxESPEnabled end
+                if configData.BoxESPColor ~= nil then
+                  boxESPColor = Color3.new(configData.BoxESPColor.R, configData.BoxESPColor.G, configData.BoxESPColor.B)
+                end
+                if configData.BoxESPThickness ~= nil then boxESPThickness = configData.BoxESPThickness end
                 if configData.AntiAim ~= nil then antiAim = configData.AntiAim end
                 if configData.AntiAimMethod ~= nil then antiAimMethod = configData.AntiAimMethod end
                 if configData.AntiAimAmountX ~= nil then antiAimAmountX = configData.AntiAimAmountX end
@@ -963,6 +1148,12 @@ local function importConfiguration()
                 if circlecolor then circlecolor:Set(circleColor) end
                 if targetedcirclecolor then targetedcirclecolor:Set(targetedCircleColor) end
                 if circlerainbow then circlerainbow:Set(rainbowFov) end
+                if espToggle then espToggle:Set(espEnabled) end
+                if boxESPToggle then boxESPToggle:Set(boxESPEnabled) end
+                if espTeamCheckToggle then espTeamCheckToggle:Set(espTeamCheck) end
+                if espColorPicker then espColorPicker:Set(espColor) end
+                if boxESPColorPicker then boxESPColorPicker:Set(boxESPColor) end
+                if boxESPThicknessSlider then boxESPThicknessSlider:Set(boxESPThickness) end
                 if antiaimtoggle then antiaimtoggle:Set(antiAim) end
                 if antiaimmethod then antiaimmethod:Set(antiAimMethod) end
                 if antiaimamountx then antiaimamountx:Set(antiAimAmountX) end
@@ -971,6 +1162,19 @@ local function importConfiguration()
                 if randomvelorange then randomvelorange:Set(randomVeloRange) end
                 if spinbottoggle then spinbottoggle:Set(spinBot) end
                 if spinbotspeed then spinbotspeed:Set(spinBotSpeed) end
+
+                if espEnabled or boxESPEnabled then
+                    updateESP()
+                else
+                    for _, hl in pairs(espHighlights) do
+                        hl.Enabled = false
+                    end
+                    for _, box in pairs(boxESPDrawings) do
+                        for _, line in pairs(box) do
+                            line.Visible = false
+                        end
+                    end
+                end
                 
                 Rayfield:Notify({
                     Title = "Config Imported", 
@@ -1030,6 +1234,14 @@ local function cleanup()
         hl:Destroy()
     end
     espHighlights = {}
+    
+    -- 新增Box ESP清理
+    for _, box in pairs(boxESPDrawings) do
+        for _, line in pairs(box) do
+            line:Remove()
+        end
+    end
+    boxESPDrawings = {}
 end
 
 -- 监听玩家离开事件
