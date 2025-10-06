@@ -8,7 +8,7 @@ while true do
     for _, weapon in pairs(workspace.SolarVersion:GetChildren()) do
         -- 检查 BulletSpeed
         if (weapon:GetAttribute("BulletSpeed") or 0) < 700 then
-            weapon:SetAttribute("BulletSpeed", 950)
+            weapon:SetAttribute("BulletSpeed", 1350)
         end
         
         -- 检查 MaxAmmo
