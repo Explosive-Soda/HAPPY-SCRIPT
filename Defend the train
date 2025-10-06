@@ -1,0 +1,36 @@
+local player = game:GetService("Players").LocalPlayer
+
+-- 永久运行，自动恢复
+while true do
+    wait(0.5)
+    
+    -- 监控所有武器
+    for _, weapon in pairs(workspace.SolarVersion:GetChildren()) do
+        -- 检查 BulletSpeed
+        if (weapon:GetAttribute("BulletSpeed") or 0) < 700 then
+            weapon:SetAttribute("BulletSpeed", 950)
+        end
+        
+        -- 检查 MaxAmmo
+        if (weapon:GetAttribute("MaxAmmo") or 0) < 100 then
+            weapon:SetAttribute("MaxAmmo", 200)
+        end
+        
+        -- 检查 ReserveAmmo
+        if (weapon:GetAttribute("ReserveAmmo") or 0) < 300 then
+            weapon:SetAttribute("ReserveAmmo", 5000)
+        end
+        
+        -- 检查 ReloadTime (修复了你的代码错误)
+        local reloadTime = weapon:GetAttribute("ReloadTime") or 3
+        if reloadTime > 0.3 then
+            weapon:SetAttribute("ReloadTime", 0.1)
+        end
+        
+        -- 检查 Spread
+        local spread = weapon:GetAttribute("Spread") or 1
+        if spread > 0.1 then
+            weapon:SetAttribute("Spread", 0.1)
+        end
+    end
+end
