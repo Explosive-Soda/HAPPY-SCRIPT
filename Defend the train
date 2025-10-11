@@ -13,7 +13,7 @@ while true do
         
         -- 检查 MaxAmmo
         if (weapon:GetAttribute("MaxAmmo") or 0) < 300 then
-            weapon:SetAttribute("MaxAmmo", 400)
+            weapon:SetAttribute("MaxAmmo", 1000)
         end
         
         -- 检查 ReserveAmmo
