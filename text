@@ -1,152 +1,209 @@
--- Source Code ESP
-local SourceCode = {
-    Enabled = true,
-    Boxes = false,
+--Settings--
+local ESP = {
+    Enabled = false,
+    Boxes = true,
     BoxShift = CFrame.new(0,-1.5,0),
 	BoxSize = Vector3.new(4,6,0),
-    Color = Color3.fromRGB(255, 255, 255),
+    Color = Color3.fromRGB(255, 255, 255),  -- 白色
     FaceCamera = false,
     Names = true,
-    TeamColor = false,
+    TeamColor = true,
     Thickness = 2,
     AttachShift = 1,
     TeamMates = true,
-    Players = false,
+    Players = true,
     Tracers = false,
     
     Objects = setmetatable({}, {__mode="kv"}),
     Overrides = {}
 }
 
--- 颜色配置
-local CurrentColor = Color3.fromRGB(255, 255, 255)
+-- GUI 设置
+local GUIEnabled = false
+local ShowDistance = true
 
 -- 创建GUI
-local gui = Instance.new("ScreenGui", game.CoreGui)
-gui.Name = "SourceCodeESP"
-gui.ResetOnSpawn = false
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ESPConfigGUI"
+screenGui.Enabled = false
 
-local frame = Instance.new("Frame", gui)
-frame.Position = UDim2.new(0.5, -100, 0.5, -75)
-frame.Size = UDim2.new(0, 200, 0, 100)
-frame.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-frame.BorderColor3 = Color3.fromRGB(255, 255, 255)
-frame.Visible = false
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 200, 0, 180)  -- 增加高度以容纳颜色输入框
+mainFrame.Position = UDim2.new(0.5, -100, 0.5, -90)
+mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
 
-local function makeLabel(name, y)
-	local label = Instance.new("TextLabel", frame)
-	label.Text = name
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.BackgroundTransparency = 1
-	label.Position = UDim2.new(0, 10, 0, y)
-	label.Size = UDim2.new(0, 80, 0, 20)
-	label.Font = Enum.Font.SourceSans
-	label.TextSize = 14
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	return label
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Text = "ESP 配置"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 14
+title.Parent = mainFrame
+
+-- Part ESP 开关
+local partESPLabel = Instance.new("TextLabel")
+partESPLabel.Size = UDim2.new(1, -10, 0, 20)
+partESPLabel.Position = UDim2.new(0, 5, 0, 35)
+partESPLabel.BackgroundTransparency = 1
+partESPLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+partESPLabel.Text = "Part ESP: 开启"
+partESPLabel.Font = Enum.Font.Gotham
+partESPLabel.TextSize = 12
+partESPLabel.TextXAlignment = Enum.TextXAlignment.Left
+partESPLabel.Parent = mainFrame
+
+local partESPToggle = Instance.new("TextButton")
+partESPToggle.Size = UDim2.new(0, 40, 0, 20)
+partESPToggle.Position = UDim2.new(1, -45, 0, 35)
+partESPToggle.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+partESPToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+partESPToggle.Text = "ON"
+partESPToggle.Font = Enum.Font.Gotham
+partESPToggle.TextSize = 12
+partESPToggle.Parent = mainFrame
+
+-- 距离显示开关
+local distanceLabel = Instance.new("TextLabel")
+distanceLabel.Size = UDim2.new(1, -10, 0, 20)
+distanceLabel.Position = UDim2.new(0, 5, 0, 60)
+distanceLabel.BackgroundTransparency = 1
+distanceLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+distanceLabel.Text = "显示距离: 开启"
+distanceLabel.Font = Enum.Font.Gotham
+distanceLabel.TextSize = 12
+distanceLabel.TextXAlignment = Enum.TextXAlignment.Left
+distanceLabel.Parent = mainFrame
+
+local distanceToggle = Instance.new("TextButton")
+distanceToggle.Size = UDim2.new(0, 40, 0, 20)
+distanceToggle.Position = UDim2.new(1, -45, 0, 60)
+distanceToggle.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+distanceToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+distanceToggle.Text = "ON"
+distanceToggle.Font = Enum.Font.Gotham
+distanceToggle.TextSize = 12
+distanceToggle.Parent = mainFrame
+
+-- 颜色输入框
+local colorLabel = Instance.new("TextLabel")
+colorLabel.Size = UDim2.new(1, -10, 0, 20)
+colorLabel.Position = UDim2.new(0, 5, 0, 85)
+colorLabel.BackgroundTransparency = 1
+colorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+colorLabel.Text = "颜色 RGB:"
+colorLabel.Font = Enum.Font.Gotham
+colorLabel.TextSize = 12
+colorLabel.TextXAlignment = Enum.TextXAlignment.Left
+colorLabel.Parent = mainFrame
+
+-- RGB 输入框
+local colorBoxes = {}
+for i, colorName in ipairs({"R", "G", "B"}) do
+    local colorText = Instance.new("TextLabel")
+    colorText.Size = UDim2.new(0, 15, 0, 20)
+    colorText.Position = UDim2.new(0, 70 + (i-1)*35, 0, 85)
+    colorText.BackgroundTransparency = 1
+    colorText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    colorText.Text = colorName
+    colorText.Font = Enum.Font.Gotham
+    colorText.TextSize = 12
+    colorText.Parent = mainFrame
+    
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0, 30, 0, 20)
+    box.Position = UDim2.new(0, 85 + (i-1)*35, 0, 85)
+    box.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    box.BorderColor3 = Color3.new(0, 0, 0)
+    box.Text = "255"
+    box.Font = Enum.Font.Gotham
+    box.TextSize = 12
+    box.TextColor3 = Color3.new(0, 0, 0)
+    box.ClearTextOnFocus = false
+    box.Parent = mainFrame
+    
+    table.insert(colorBoxes, box)
 end
 
--- RGB 颜色输入框
-local function makeRGB(y)
-	local boxes = {}
-	for i, colorName in ipairs({"R", "G", "B"}) do
-		local box = Instance.new("TextBox", frame)
-		box.Position = UDim2.new(0, 90 + (i - 1) * 30, 0, y)
-		box.Size = UDim2.new(0, 28, 0, 20)
-		box.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		box.BorderColor3 = Color3.new(1, 1, 1)
-		box.Text = "255"
-		box.Font = Enum.Font.SourceSans
-		box.TextSize = 14
-		box.TextColor3 = Color3.new(0, 0, 0)
-		box.ClearTextOnFocus = true
-		box.FocusLost:Connect(function()
-			local r = tonumber(boxes[1].Text) or 255
-			local g = tonumber(boxes[2].Text) or 255
-			local b = tonumber(boxes[3].Text) or 255
-			
-			-- 确保数值在有效范围内
-			r = math.clamp(r, 0, 255)
-			g = math.clamp(g, 0, 255)
-			b = math.clamp(b, 0, 255)
-			
-			CurrentColor = Color3.fromRGB(r, g, b)
-			SourceCode.Color = CurrentColor
-			
-			-- 更新所有现有对象的颜色
-			for obj, espBox in pairs(SourceCode.Objects) do
-				if espBox.Components then
-					for _, component in pairs(espBox.Components) do
-						component.Color = CurrentColor
-					end
-				end
-			end
-			
-			print("颜色已更改为: RGB(" .. r .. "," .. g .. "," .. b .. ")")
-		end)
-		table.insert(boxes, box)
-	end
+-- 应用颜色按钮
+local applyColorButton = Instance.new("TextButton")
+applyColorButton.Size = UDim2.new(0, 60, 0, 20)
+applyColorButton.Position = UDim2.new(0, 70, 0, 110)
+applyColorButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+applyColorButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+applyColorButton.Text = "应用颜色"
+applyColorButton.Font = Enum.Font.Gotham
+applyColorButton.TextSize = 12
+applyColorButton.Parent = mainFrame
+
+-- 关闭按钮
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(1, -10, 0, 25)
+closeButton.Position = UDim2.new(0, 5, 1, -30)
+closeButton.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.Text = "关闭 GUI"
+closeButton.Font = Enum.Font.Gotham
+closeButton.TextSize = 12
+closeButton.Parent = mainFrame
+
+screenGui.Parent = game:GetService("CoreGui")
+
+-- 颜色更改函数
+local function updateColor()
+    local r = tonumber(colorBoxes[1].Text) or 255
+    local g = tonumber(colorBoxes[2].Text) or 255
+    local b = tonumber(colorBoxes[3].Text) or 255
+    
+    -- 确保数值在有效范围内
+    r = math.clamp(r, 0, 255)
+    g = math.clamp(g, 0, 255)
+    b = math.clamp(b, 0, 255)
+    
+    ESP.Color = Color3.fromRGB(r, g, b)
+    
+    -- 更新所有现有对象的颜色
+    for obj, box in pairs(ESP.Objects) do
+        if box.Components then
+            for _, component in pairs(box.Components) do
+                component.Color = ESP.Color
+            end
+        end
+    end
+    
+    print("颜色已更改为: RGB(" .. r .. "," .. g .. "," .. b .. ")")
 end
 
--- 创建组件
-makeLabel("COLOUR", 10)
-makeRGB(10)
+-- 应用颜色按钮点击事件
+applyColorButton.MouseButton1Click:Connect(updateColor)
 
-makeLabel("右侧Alt显示GUI", 40)
-makeLabel("右侧Ctrl开关ESP", 60)
+-- 输入框回车键应用颜色
+for _, box in pairs(colorBoxes) do
+    box.FocusLost:Connect(function(enterPressed)
+        if enterPressed then
+            updateColor()
+        end
+    end)
+end
 
--- GUI 拖动功能
-local dragging = false
-local dragStart = nil
-local startPos = nil
-
-frame.InputBegan:Connect(function(input, gp)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = true
-		dragStart = input.Position
-		startPos = frame.Position
-	end
-end)
-
-frame.InputChanged:Connect(function(input)
-	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-		local delta = input.Position - dragStart
-		frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-	end
-end)
-
-frame.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = false
-	end
-end)
-
--- GUI 显隐控制（右侧Alt键）
-local UserInputService = game:GetService("UserInputService")
-UserInputService.InputBegan:Connect(function(input, gp)
-	if not gp and input.KeyCode == Enum.KeyCode.RightAlt then
-		frame.Visible = not frame.Visible
-	end
-end)
-
--- ESP 开关控制（右侧Ctrl键）
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if not gameProcessed and input.KeyCode == Enum.KeyCode.RightControl then
-		SourceCode.Enabled = not SourceCode.Enabled
-		SourceCode:Toggle(SourceCode.Enabled)
-		print("ESP 状态:", SourceCode.Enabled and "启用" or "禁用")
-	end
-end)
-
+--Declarations--
 local cam = workspace.CurrentCamera
 local plrs = game:GetService("Players")
 local plr = plrs.LocalPlayer
+local mouse = plr:GetMouse()
 
 local V3new = Vector3.new
 local WorldToViewportPoint = cam.WorldToViewportPoint
 
+--Functions--
 local function Draw(obj, props)
 	local new = Drawing.new(obj)
+	
 	props = props or {}
 	for i,v in pairs(props) do
 		new[i] = v
@@ -154,23 +211,25 @@ local function Draw(obj, props)
 	return new
 end
 
-function SourceCode:GetTeam(p)
+function ESP:GetTeam(p)
 	local ov = self.Overrides.GetTeam
 	if ov then
 		return ov(p)
 	end
+	
 	return p and p.Team
 end
 
-function SourceCode:IsTeamMate(p)
+function ESP:IsTeamMate(p)
     local ov = self.Overrides.IsTeamMate
 	if ov then
 		return ov(p)
     end
+    
     return self:GetTeam(p) == self:GetTeam(plr)
 end
 
-function SourceCode:GetColor(obj)
+function ESP:GetColor(obj)
 	local ov = self.Overrides.GetColor
 	if ov then
 		return ov(obj)
@@ -179,15 +238,16 @@ function SourceCode:GetColor(obj)
 	return p and self.TeamColor and p.Team and p.Team.TeamColor.Color or self.Color
 end
 
-function SourceCode:GetPlrFromChar(char)
+function ESP:GetPlrFromChar(char)
 	local ov = self.Overrides.GetPlrFromChar
 	if ov then
 		return ov(char)
 	end
+	
 	return plrs:GetPlayerFromCharacter(char)
 end
 
-function SourceCode:Toggle(bool)
+function ESP:Toggle(bool)
     self.Enabled = bool
     if not bool then
         for i,v in pairs(self.Objects) do
@@ -205,25 +265,33 @@ function SourceCode:Toggle(bool)
         for i,v in pairs(self.Objects) do
             if v.Type == "Box" then
                 for i,component in pairs(v.Components) do
-                    component.Visible = true
+                    if component == v.Components.Name then
+                        component.Visible = self.Names
+                    elseif component == v.Components.Distance then
+                        component.Visible = self.Names and ShowDistance
+                    elseif component == v.Components.Quad then
+                        component.Visible = self.Boxes
+                    elseif component == v.Components.Tracer then
+                        component.Visible = self.Tracers
+                    end
                 end
             end
         end
     end
 end
 
-function SourceCode:GetBox(obj)
+function ESP:GetBox(obj)
     return self.Objects[obj]
 end
 
-function SourceCode:AddObjectListener(parent, options)
+function ESP:AddObjectListener(parent, options)
     local function NewListener(c)
         if type(options.Type) == "string" and c:IsA(options.Type) or options.Type == nil then
             if type(options.Name) == "string" and c.Name == options.Name or options.Name == nil then
                 if not options.Validator or options.Validator(c) then
-                    local box = SourceCode:Add(c, {
+                    local box = ESP:Add(c, {
                         PrimaryPart = type(options.PrimaryPart) == "string" and c:WaitForChild(options.PrimaryPart) or type(options.PrimaryPart) == "function" and options.PrimaryPart(c),
-                        Color = type(options.Color) == "function" and options.Color(c) or options.Color or CurrentColor,
+                        Color = type(options.Color) == "function" and options.Color(c) or options.Color or ESP.Color,
                         ColorDynamic = options.ColorDynamic,
                         Name = type(options.CustomName) == "function" and options.CustomName(c) or options.CustomName,
                         IsEnabled = options.IsEnabled,
@@ -254,7 +322,7 @@ local boxBase = {}
 boxBase.__index = boxBase
 
 function boxBase:Remove()
-    SourceCode.Objects[self.Object] = nil
+    ESP.Objects[self.Object] = nil
     for i,v in pairs(self.Components) do
         v.Visible = false
         v:Remove()
@@ -267,19 +335,24 @@ function boxBase:Update()
         return self:Remove()
     end
 
-    local color = self.Color or self.ColorDynamic and self:ColorDynamic() or SourceCode:GetColor(self.Object) or CurrentColor
+    local color
+    if ESP.Highlighted == self.Object then
+       color = ESP.HighlightColor
+    else
+        color = self.Color or self.ColorDynamic and self:ColorDynamic() or ESP:GetColor(self.Object) or ESP.Color
+    end
 
     local allow = true
-    if SourceCode.Overrides.UpdateAllow and not SourceCode.Overrides.UpdateAllow(self) then
+    if ESP.Overrides.UpdateAllow and not ESP.Overrides.UpdateAllow(self) then
         allow = false
     end
-    if self.Player and not SourceCode.TeamMates and SourceCode:IsTeamMate(self.Player) then
+    if self.Player and not ESP.TeamMates and ESP:IsTeamMate(self.Player) then
         allow = false
     end
-    if self.Player and not SourceCode.Players then
+    if self.Player and not ESP.Players then
         allow = false
     end
-    if self.IsEnabled and (type(self.IsEnabled) == "string" and not SourceCode[self.IsEnabled] or type(self.IsEnabled) == "function" and not self:IsEnabled()) then
+    if self.IsEnabled and (type(self.IsEnabled) == "string" and not ESP[self.IsEnabled] or type(self.IsEnabled) == "function" and not self:IsEnabled()) then
         allow = false
     end
     if not workspace:IsAncestorOf(self.PrimaryPart) and not self.RenderInNil then
@@ -293,21 +366,48 @@ function boxBase:Update()
         return
     end
 
+    if ESP.Highlighted == self.Object then
+        color = ESP.HighlightColor
+    end
+
+    --calculations--
     local cf = self.PrimaryPart.CFrame
-    if SourceCode.FaceCamera then
+    if ESP.FaceCamera then
         cf = CFrame.new(cf.p, cam.CFrame.p)
     end
     local size = self.Size
     local locs = {
-        TopLeft = cf * SourceCode.BoxShift * CFrame.new(size.X/2,size.Y/2,0),
-        TopRight = cf * SourceCode.BoxShift * CFrame.new(-size.X/2,size.Y/2,0),
-        BottomLeft = cf * SourceCode.BoxShift * CFrame.new(size.X/2,-size.Y/2,0),
-        BottomRight = cf * SourceCode.BoxShift * CFrame.new(-size.X/2,-size.Y/2,0),
-        TagPos = cf * SourceCode.BoxShift * CFrame.new(0,size.Y/2,0),
-        Torso = cf * SourceCode.BoxShift
+        TopLeft = cf * ESP.BoxShift * CFrame.new(size.X/2,size.Y/2,0),
+        TopRight = cf * ESP.BoxShift * CFrame.new(-size.X/2,size.Y/2,0),
+        BottomLeft = cf * ESP.BoxShift * CFrame.new(size.X/2,-size.Y/2,0),
+        BottomRight = cf * ESP.BoxShift * CFrame.new(-size.X/2,-size.Y/2,0),
+        TagPos = cf * ESP.BoxShift * CFrame.new(0,size.Y/2,0),
+        Torso = cf * ESP.BoxShift
     }
 
-    if SourceCode.Names then
+    if ESP.Boxes then
+        local TopLeft, Vis1 = WorldToViewportPoint(cam, locs.TopLeft.p)
+        local TopRight, Vis2 = WorldToViewportPoint(cam, locs.TopRight.p)
+        local BottomLeft, Vis3 = WorldToViewportPoint(cam, locs.BottomLeft.p)
+        local BottomRight, Vis4 = WorldToViewportPoint(cam, locs.BottomRight.p)
+
+        if self.Components.Quad then
+            if Vis1 or Vis2 or Vis3 or Vis4 then
+                self.Components.Quad.Visible = true
+                self.Components.Quad.PointA = Vector2.new(TopRight.X, TopRight.Y)
+                self.Components.Quad.PointB = Vector2.new(TopLeft.X, TopLeft.Y)
+                self.Components.Quad.PointC = Vector2.new(BottomLeft.X, BottomLeft.Y)
+                self.Components.Quad.PointD = Vector2.new(BottomRight.X, BottomRight.Y)
+                self.Components.Quad.Color = color
+            else
+                self.Components.Quad.Visible = false
+            end
+        end
+    else
+        self.Components.Quad.Visible = false
+    end
+
+    if ESP.Names then
         local TagPos, Vis5 = WorldToViewportPoint(cam, locs.TagPos.p)
         
         if Vis5 then
@@ -316,10 +416,14 @@ function boxBase:Update()
             self.Components.Name.Text = self.Name
             self.Components.Name.Color = color
             
-            self.Components.Distance.Visible = true
-            self.Components.Distance.Position = Vector2.new(TagPos.X, TagPos.Y + 14)
-            self.Components.Distance.Text = math.floor((cam.CFrame.p - cf.p).magnitude) .."m away"
-            self.Components.Distance.Color = color
+            if ShowDistance then
+                self.Components.Distance.Visible = true
+                self.Components.Distance.Position = Vector2.new(TagPos.X, TagPos.Y + 14)
+                self.Components.Distance.Text = math.floor((cam.CFrame.p - cf.p).magnitude) .."m away"
+                self.Components.Distance.Color = color
+            else
+                self.Components.Distance.Visible = false
+            end
         else
             self.Components.Name.Visible = false
             self.Components.Distance.Visible = false
@@ -328,9 +432,24 @@ function boxBase:Update()
         self.Components.Name.Visible = false
         self.Components.Distance.Visible = false
     end
+    
+    if ESP.Tracers then
+        local TorsoPos, Vis6 = WorldToViewportPoint(cam, locs.Torso.p)
+
+        if Vis6 then
+            self.Components.Tracer.Visible = true
+            self.Components.Tracer.From = Vector2.new(TorsoPos.X, TorsoPos.Y)
+            self.Components.Tracer.To = Vector2.new(cam.ViewportSize.X/2,cam.ViewportSize.Y/ESP.AttachShift)
+            self.Components.Tracer.Color = color
+        else
+            self.Components.Tracer.Visible = false
+        end
+    else
+        self.Components.Tracer.Visible = false
+    end
 end
 
-function SourceCode:Add(obj, options)
+function ESP:Add(obj, options)
     if not obj.Parent and not options.RenderInNil then
         return warn(obj, "has no parent")
     end
@@ -338,7 +457,7 @@ function SourceCode:Add(obj, options)
     local box = setmetatable({
         Name = options.Name or obj.Name,
         Type = "Box",
-        Color = options.Color or CurrentColor,
+        Color = options.Color or ESP.Color,
         Size = options.Size or self.BoxSize,
         Object = obj,
         Player = options.Player or plrs:GetPlayerFromCharacter(obj),
@@ -354,6 +473,13 @@ function SourceCode:Add(obj, options)
         self:GetBox(obj):Remove()
     end
 
+    box.Components["Quad"] = Draw("Quad", {
+        Thickness = self.Thickness,
+        Color = box.Color,
+        Transparency = 1,
+        Filled = false,
+        Visible = self.Enabled and self.Boxes
+    })
     box.Components["Name"] = Draw("Text", {
 		Text = box.Name,
 		Color = box.Color,
@@ -367,29 +493,150 @@ function SourceCode:Add(obj, options)
 		Center = true,
 		Outline = true,
         Size = 19,
-        Visible = self.Enabled and self.Names
+        Visible = self.Enabled and self.Names and ShowDistance
 	})
-    
+	
+	box.Components["Tracer"] = Draw("Line", {
+		Thickness = ESP.Thickness,
+		Color = box.Color,
+        Transparency = 1,
+        Visible = self.Enabled and self.Tracers
+    })
     self.Objects[obj] = box
     
     obj.AncestryChanged:Connect(function(_, parent)
-        if parent == nil and SourceCode.AutoRemove ~= false then
+        if parent == nil and ESP.AutoRemove ~= false then
             box:Remove()
         end
     end)
     obj:GetPropertyChangedSignal("Parent"):Connect(function()
-        if obj.Parent == nil and SourceCode.AutoRemove ~= false then
+        if obj.Parent == nil and ESP.AutoRemove ~= false then
             box:Remove()
         end
     end)
 
+    local hum = obj:FindFirstChildOfClass("Humanoid")
+	if hum then
+        hum.Died:Connect(function()
+            if ESP.AutoRemove ~= false then
+                box:Remove()
+            end
+		end)
+    end
+
     return box
+end
+
+-- GUI 功能
+partESPToggle.MouseButton1Click:Connect(function()
+    ESP.Enabled = not ESP.Enabled
+    ESP:Toggle(ESP.Enabled)
+    if ESP.Enabled then
+        partESPToggle.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        partESPToggle.Text = "ON"
+        partESPLabel.Text = "Part ESP: 开启"
+    else
+        partESPToggle.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+        partESPToggle.Text = "OFF"
+        partESPLabel.Text = "Part ESP: 关闭"
+    end
+end)
+
+distanceToggle.MouseButton1Click:Connect(function()
+    ShowDistance = not ShowDistance
+    if ShowDistance then
+        distanceToggle.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        distanceToggle.Text = "ON"
+        distanceLabel.Text = "显示距离: 开启"
+    else
+        distanceToggle.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+        distanceToggle.Text = "OFF"
+        distanceLabel.Text = "显示距离: 关闭"
+    end
+    
+    -- 更新所有ESP对象的距离显示
+    for _, box in pairs(ESP.Objects) do
+        if box.Components.Distance then
+            box.Components.Distance.Visible = ESP.Enabled and ESP.Names and ShowDistance
+        end
+    end
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+    screenGui.Enabled = false
+    GUIEnabled = false
+end)
+
+-- 键盘控制
+local UserInputService = game:GetService("UserInputService")
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    -- 右侧Ctrl键切换ESP
+    if input.KeyCode == Enum.KeyCode.RightControl then
+        ESP.Enabled = not ESP.Enabled
+        ESP:Toggle(ESP.Enabled)
+        if ESP.Enabled then
+            partESPToggle.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+            partESPToggle.Text = "ON"
+            partESPLabel.Text = "Part ESP: 开启"
+        else
+            partESPToggle.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+            partESPToggle.Text = "OFF"
+            partESPLabel.Text = "Part ESP: 关闭"
+        end
+    end
+    
+    -- 右侧Alt键切换GUI
+    if input.KeyCode == Enum.KeyCode.RightAlt then
+        GUIEnabled = not GUIEnabled
+        screenGui.Enabled = GUIEnabled
+    end
+end)
+
+-- 玩家自动追踪
+local function CharAdded(char)
+    local p = plrs:GetPlayerFromCharacter(char)
+    if not char:FindFirstChild("HumanoidRootPart") then
+        local ev
+        ev = char.ChildAdded:Connect(function(c)
+            if c.Name == "HumanoidRootPart" then
+                ev:Disconnect()
+                ESP:Add(char, {
+                    Name = p.Name,
+                    Player = p,
+                    PrimaryPart = c
+                })
+            end
+        end)
+    else
+        ESP:Add(char, {
+            Name = p.Name,
+            Player = p,
+            PrimaryPart = char.HumanoidRootPart
+        })
+    end
+end
+
+local function PlayerAdded(p)
+    p.CharacterAdded:Connect(CharAdded)
+    if p.Character then
+        coroutine.wrap(CharAdded)(p.Character)
+    end
+end
+
+plrs.PlayerAdded:Connect(PlayerAdded)
+for i,v in pairs(plrs:GetPlayers()) do
+    if v ~= plr then
+        PlayerAdded(v)
+    end
 end
 
 -- 主循环
 game:GetService("RunService").RenderStepped:Connect(function()
     cam = workspace.CurrentCamera
-    for i,v in (SourceCode.Enabled and pairs or ipairs)(SourceCode.Objects) do
+    for i,v in (ESP.Enabled and pairs or ipairs)(ESP.Objects) do
         if v.Update then
             local s,e = pcall(v.Update, v)
             if not s then warn("[EU]", e, v.Object:GetFullName()) end
@@ -397,7 +644,8 @@ game:GetService("RunService").RenderStepped:Connect(function()
     end
 end)
 
--- 初始启用
-SourceCode:Toggle(true)
+-- 初始启用ESP
+ESP.Enabled = true
+ESP:Toggle(true)
 
-return SourceCode
+return ESP
