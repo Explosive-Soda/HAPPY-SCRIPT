@@ -19,13 +19,13 @@ local ESP = {
 }
 
 -- GUI 设置
-local GUIEnabled = false
-local ShowDistance = true
+local GUIEnabled = true
+local ShowDistance = false
 
 -- 创建GUI
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ESPConfigGUI"
-screenGui.Enabled = false
+screenGui.Enabled = true
 
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 200, 0, 180)  -- 增加高度以容纳颜色输入框
