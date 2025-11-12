@@ -229,7 +229,14 @@ local boxBase = {}
 boxBase.__index = boxBase
 
 function boxBase:Remove()
-    ESP.Objects[self.Object] = nil
+    -- 通过唯一ID移除，而不是对象引用
+    for id, boxObj in pairs(ESP.Objects) do
+        if boxObj.UniqueId == self.UniqueId then
+            ESP.Objects[id] = nil
+            break
+        end
+    end
+    
     for i,v in pairs(self.Components) do
         v.Visible = false
         v:Remove()
@@ -352,7 +359,9 @@ function ESP:Add(obj, options)
     if not obj.Parent and not options.RenderInNil then
         return warn(obj, "has no parent")
     end
-
+	
+	local uniqueId = tostring(obj) .. "_" .. tick() .. "_" .. math.random(1000, 9000)
+	
     local box = setmetatable({
         Name = options.Name or obj.Name,
         Type = "Box",
@@ -363,12 +372,11 @@ function ESP:Add(obj, options)
         Components = {},
         IsEnabled = options.IsEnabled,
         Temporary = options.Temporary,
-        RenderInNil = options.RenderInNil
+        RenderInNil = options.RenderInNil,
+        UniqueId = uniqueId
     }, boxBase)
 
-    if self:GetBox(obj) then
-        self:GetBox(obj):Remove()
-    end
+	self.Objects[uniqueId] = box
 
     box.Components["Quad"] = Draw("Quad", {
         Thickness = self.Thickness,
@@ -390,7 +398,7 @@ function ESP:Add(obj, options)
 		Center = true,
 		Outline = true,
         Size = 19,
-        Visible = self.Enabled and self.Names and ShowDistance  -- 使用新的ShowDistance变量
+        Visible = self.Enabled and self.Names and ShowDistance
 	})
 	
 	box.Components["Tracer"] = Draw("Line", {
@@ -399,8 +407,10 @@ function ESP:Add(obj, options)
         Transparency = 1,
         Visible = self.Enabled and self.Tracers
     })
+	
     self.Objects[obj] = box
     
+    -- 自动清理监听
     obj.AncestryChanged:Connect(function(_, parent)
         if parent == nil and ESP.AutoRemove ~= false then
             box:Remove()
