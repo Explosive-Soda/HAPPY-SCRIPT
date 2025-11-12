@@ -4,7 +4,7 @@ local ESP = {
     Boxes = true,
     BoxShift = CFrame.new(0,-1.5,0),
 	BoxSize = Vector3.new(4,6,0),
-    Color = Color3.fromRGB(255, 255, 255),  -- 白色
+    Color = Color3.fromRGB(255, 255, 255),  -- 固定白色
     FaceCamera = false,
     Names = true,
     TeamColor = true,
@@ -20,7 +20,7 @@ local ESP = {
 
 -- GUI 设置
 local GUIEnabled = false
-local ShowDistance = true
+local ShowDistance = false  -- 默认关闭距离显示
 
 -- 创建GUI
 local screenGui = Instance.new("ScreenGui")
@@ -28,8 +28,8 @@ screenGui.Name = "ESPConfigGUI"
 screenGui.Enabled = false
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 200, 0, 150)
-mainFrame.Position = UDim2.new(0.5, -100, 0.5, -75)
+mainFrame.Size = UDim2.new(0, 200, 0, 120)
+mainFrame.Position = UDim2.new(0.5, -100, 0.5, -60)
 mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
@@ -74,7 +74,7 @@ distanceLabel.Size = UDim2.new(1, -10, 0, 20)
 distanceLabel.Position = UDim2.new(0, 5, 0, 60)
 distanceLabel.BackgroundTransparency = 1
 distanceLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-distanceLabel.Text = "显示距离: 开启"
+distanceLabel.Text = "显示距离: 关闭"  -- 初始显示为关闭
 distanceLabel.Font = Enum.Font.Gotham
 distanceLabel.TextSize = 12
 distanceLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -83,24 +83,12 @@ distanceLabel.Parent = mainFrame
 local distanceToggle = Instance.new("TextButton")
 distanceToggle.Size = UDim2.new(0, 40, 0, 20)
 distanceToggle.Position = UDim2.new(1, -45, 0, 60)
-distanceToggle.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+distanceToggle.BackgroundColor3 = Color3.fromRGB(170, 0, 0)  -- 初始红色，表示关闭
 distanceToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-distanceToggle.Text = "ON"
+distanceToggle.Text = "OFF"  -- 初始显示OFF
 distanceToggle.Font = Enum.Font.Gotham
 distanceToggle.TextSize = 12
 distanceToggle.Parent = mainFrame
-
--- 颜色显示
-local colorLabel = Instance.new("TextLabel")
-colorLabel.Size = UDim2.new(1, -10, 0, 20)
-colorLabel.Position = UDim2.new(0, 5, 0, 85)
-colorLabel.BackgroundTransparency = 1
-colorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-colorLabel.Text = "颜色: RGB(255,255,255)"
-colorLabel.Font = Enum.Font.Gotham
-colorLabel.TextSize = 12
-colorLabel.TextXAlignment = Enum.TextXAlignment.Left
-colorLabel.Parent = mainFrame
 
 -- 关闭按钮
 local closeButton = Instance.new("TextButton")
@@ -153,13 +141,10 @@ function ESP:IsTeamMate(p)
     return self:GetTeam(p) == self:GetTeam(plr)
 end
 
+-- 简化颜色获取函数，移除动态颜色功能
 function ESP:GetColor(obj)
-	local ov = self.Overrides.GetColor
-	if ov then
-		return ov(obj)
-    end
     local p = self:GetPlrFromChar(obj)
-	return p and self.TeamColor and p.Team and p.Team.TeamColor.Color or self.Color
+    return p and self.TeamColor and p.Team and p.Team.TeamColor.Color or self.Color
 end
 
 function ESP:GetPlrFromChar(char)
@@ -192,7 +177,7 @@ function ESP:Toggle(bool)
                     if component == v.Components.Name then
                         component.Visible = self.Names
                     elseif component == v.Components.Distance then
-                        component.Visible = self.Names and ShowDistance
+                        component.Visible = self.Names and ShowDistance  -- 使用新的ShowDistance变量
                     elseif component == v.Components.Quad then
                         component.Visible = self.Boxes
                     elseif component == v.Components.Tracer then
@@ -215,8 +200,6 @@ function ESP:AddObjectListener(parent, options)
                 if not options.Validator or options.Validator(c) then
                     local box = ESP:Add(c, {
                         PrimaryPart = type(options.PrimaryPart) == "string" and c:WaitForChild(options.PrimaryPart) or type(options.PrimaryPart) == "function" and options.PrimaryPart(c),
-                        Color = type(options.Color) == "function" and options.Color(c) or options.Color,
-                        ColorDynamic = options.ColorDynamic,
                         Name = type(options.CustomName) == "function" and options.CustomName(c) or options.CustomName,
                         IsEnabled = options.IsEnabled,
                         RenderInNil = options.RenderInNil
@@ -259,12 +242,8 @@ function boxBase:Update()
         return self:Remove()
     end
 
-    local color
-    if ESP.Highlighted == self.Object then
-       color = ESP.HighlightColor
-    else
-        color = self.Color or self.ColorDynamic and self:ColorDynamic() or ESP:GetColor(self.Object) or ESP.Color
-    end
+    -- 简化颜色逻辑，使用固定颜色或队伍颜色
+    local color = ESP:GetColor(self.Object)
 
     local allow = true
     if ESP.Overrides.UpdateAllow and not ESP.Overrides.UpdateAllow(self) then
@@ -288,10 +267,6 @@ function boxBase:Update()
             v.Visible = false
         end
         return
-    end
-
-    if ESP.Highlighted == self.Object then
-        color = ESP.HighlightColor
     end
 
     --calculations--
@@ -340,7 +315,7 @@ function boxBase:Update()
             self.Components.Name.Text = self.Name
             self.Components.Name.Color = color
             
-            if ShowDistance then
+            if ShowDistance then  -- 使用新的ShowDistance变量
                 self.Components.Distance.Visible = true
                 self.Components.Distance.Position = Vector2.new(TagPos.X, TagPos.Y + 14)
                 self.Components.Distance.Text = math.floor((cam.CFrame.p - cf.p).magnitude) .."m away"
@@ -381,7 +356,6 @@ function ESP:Add(obj, options)
     local box = setmetatable({
         Name = options.Name or obj.Name,
         Type = "Box",
-        Color = options.Color,
         Size = options.Size or self.BoxSize,
         Object = obj,
         Player = options.Player or plrs:GetPlayerFromCharacter(obj),
@@ -389,7 +363,6 @@ function ESP:Add(obj, options)
         Components = {},
         IsEnabled = options.IsEnabled,
         Temporary = options.Temporary,
-        ColorDynamic = options.ColorDynamic,
         RenderInNil = options.RenderInNil
     }, boxBase)
 
@@ -399,30 +372,30 @@ function ESP:Add(obj, options)
 
     box.Components["Quad"] = Draw("Quad", {
         Thickness = self.Thickness,
-        Color = color,
+        Color = self:GetColor(obj),
         Transparency = 1,
         Filled = false,
         Visible = self.Enabled and self.Boxes
     })
     box.Components["Name"] = Draw("Text", {
 		Text = box.Name,
-		Color = box.Color,
+		Color = self:GetColor(obj),
 		Center = true,
 		Outline = true,
         Size = 19,
         Visible = self.Enabled and self.Names
 	})
 	box.Components["Distance"] = Draw("Text", {
-		Color = box.Color,
+		Color = self:GetColor(obj),
 		Center = true,
 		Outline = true,
         Size = 19,
-        Visible = self.Enabled and self.Names and ShowDistance
+        Visible = self.Enabled and self.Names and ShowDistance  -- 使用新的ShowDistance变量
 	})
 	
 	box.Components["Tracer"] = Draw("Line", {
 		Thickness = ESP.Thickness,
-		Color = box.Color,
+		Color = self:GetColor(obj),
         Transparency = 1,
         Visible = self.Enabled and self.Tracers
     })
