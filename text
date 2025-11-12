@@ -387,7 +387,8 @@ function ESP:Add(obj, options)
         UniqueId = uniqueId
     }, boxBase)
 
-	self.Objects[uniqueId] = box
+    -- 使用唯一ID存储
+    self.Objects[uniqueId] = box
 
     box.Components["Quad"] = Draw("Quad", {
         Thickness = self.Thickness,
@@ -418,18 +419,13 @@ function ESP:Add(obj, options)
         Transparency = 1,
         Visible = self.Enabled and self.Tracers
     })
-	
-    self.Objects[obj] = box
     
-    -- 自动清理监听
+    -- 自动清理监听（所有监听器放在一起）
     obj.AncestryChanged:Connect(function(_, parent)
         if parent == nil and ESP.AutoRemove ~= false then
             box:Remove()
         end
     end)
-
-    return box
-end
 
     obj:GetPropertyChangedSignal("Parent"):Connect(function()
         if obj.Parent == nil and ESP.AutoRemove ~= false then
@@ -445,7 +441,7 @@ end
             end
 		end)
     end
-
+    
     return box
 end
 
