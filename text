@@ -20,7 +20,7 @@ local ESP = {
 
 -- GUI 设置
 local GUIEnabled = false
-local ShowDistance = true
+local ShowDistance = false  -- 默认关闭距离显示
 
 -- 创建GUI
 local screenGui = Instance.new("ScreenGui")
@@ -28,7 +28,7 @@ screenGui.Name = "ESPConfigGUI"
 screenGui.Enabled = false
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 200, 0, 120)  -- 高度减小，移除颜色区域
+mainFrame.Size = UDim2.new(0, 200, 0, 120)
 mainFrame.Position = UDim2.new(0.5, -100, 0.5, -60)
 mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 mainFrame.BorderSizePixel = 0
@@ -74,7 +74,7 @@ distanceLabel.Size = UDim2.new(1, -10, 0, 20)
 distanceLabel.Position = UDim2.new(0, 5, 0, 60)
 distanceLabel.BackgroundTransparency = 1
 distanceLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-distanceLabel.Text = "显示距离: 开启"
+distanceLabel.Text = "显示距离: 关闭"  -- 初始显示为关闭
 distanceLabel.Font = Enum.Font.Gotham
 distanceLabel.TextSize = 12
 distanceLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -83,9 +83,9 @@ distanceLabel.Parent = mainFrame
 local distanceToggle = Instance.new("TextButton")
 distanceToggle.Size = UDim2.new(0, 40, 0, 20)
 distanceToggle.Position = UDim2.new(1, -45, 0, 60)
-distanceToggle.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+distanceToggle.BackgroundColor3 = Color3.fromRGB(170, 0, 0)  -- 初始红色，表示关闭
 distanceToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-distanceToggle.Text = "ON"
+distanceToggle.Text = "OFF"  -- 初始显示OFF
 distanceToggle.Font = Enum.Font.Gotham
 distanceToggle.TextSize = 12
 distanceToggle.Parent = mainFrame
@@ -177,7 +177,7 @@ function ESP:Toggle(bool)
                     if component == v.Components.Name then
                         component.Visible = self.Names
                     elseif component == v.Components.Distance then
-                        component.Visible = self.Names and ShowDistance
+                        component.Visible = self.Names and ShowDistance  -- 使用新的ShowDistance变量
                     elseif component == v.Components.Quad then
                         component.Visible = self.Boxes
                     elseif component == v.Components.Tracer then
@@ -315,7 +315,7 @@ function boxBase:Update()
             self.Components.Name.Text = self.Name
             self.Components.Name.Color = color
             
-            if ShowDistance then
+            if ShowDistance then  -- 使用新的ShowDistance变量
                 self.Components.Distance.Visible = true
                 self.Components.Distance.Position = Vector2.new(TagPos.X, TagPos.Y + 14)
                 self.Components.Distance.Text = math.floor((cam.CFrame.p - cf.p).magnitude) .."m away"
@@ -390,7 +390,7 @@ function ESP:Add(obj, options)
 		Center = true,
 		Outline = true,
         Size = 19,
-        Visible = self.Enabled and self.Names and ShowDistance
+        Visible = self.Enabled and self.Names and ShowDistance  -- 使用新的ShowDistance变量
 	})
 	
 	box.Components["Tracer"] = Draw("Line", {
