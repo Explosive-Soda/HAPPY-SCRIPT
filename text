@@ -229,11 +229,16 @@ local boxBase = {}
 boxBase.__index = boxBase
 
 function boxBase:Remove()
-    -- 通过唯一ID移除，而不是对象引用
-    for id, boxObj in pairs(ESP.Objects) do
-        if boxObj.UniqueId == self.UniqueId then
-            ESP.Objects[id] = nil
-            break
+    -- 通过唯一ID移除
+    if self.UniqueId and ESP.Objects[self.UniqueId] then
+        ESP.Objects[self.UniqueId] = nil
+    else
+        -- 向后兼容：如果没有UniqueId，遍历查找
+        for id, boxObj in pairs(ESP.Objects) do
+            if boxObj == self then
+                ESP.Objects[id] = nil
+                break
+            end
         end
     end
     
@@ -360,7 +365,13 @@ function ESP:Add(obj, options)
         return warn(obj, "has no parent")
     end
 	
-	local uniqueId = tostring(obj) .. "_" .. tick() .. "_" .. math.random(1000, 9000)
+    local position = options.PrimaryPart and options.PrimaryPart.Position or obj:GetPivot().Position
+    local uniqueId = string.format("%s_%d_%d_%d_%d", 
+        tostring(obj),
+        math.floor(position.X), 
+        math.floor(position.Y), 
+        math.floor(position.Z),
+        tick() * 1000000)
 	
     local box = setmetatable({
         Name = options.Name or obj.Name,
@@ -416,6 +427,10 @@ function ESP:Add(obj, options)
             box:Remove()
         end
     end)
+
+    return box
+end
+
     obj:GetPropertyChangedSignal("Parent"):Connect(function()
         if obj.Parent == nil and ESP.AutoRemove ~= false then
             box:Remove()
