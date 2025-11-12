@@ -1,34 +1,16 @@
-local ESP = loadstring(game:HttpGet("https://kiriot22.com/releases/ESP.lua"))()
+local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/Explosive-Soda/HAPPY-SCRIPT/refs/heads/main/text"))()
 
 -- config
 ESP.Players = false
 ESP.Boxes = false
 ESP.Names = true
-ESP:Toggle(true)
-
--- 初始化一个变量来跟踪 ESP 状态
-local espEnabled = true  -- 初始状态为启用
-
--- 切换 ESP 开关的函数
-local function toggleESP()
-    espEnabled = not espEnabled  -- 切换状态
-    ESP:Toggle(espEnabled)  -- 根据状态启用或禁用 ESP
-    print("ESP 状态:", espEnabled and "启用" or "禁用")  -- 输出当前状态
-end
-
--- 绑定切换函数到右侧 Ctrl 键
-local UserInputService = game:GetService("UserInputService")
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == Enum.KeyCode.RightControl then
-        toggleESP()  -- 调用切换函数
-    end
-end)
 
 -- object
-ESP:AddObjectListener(Workspace.Mafioso, { 
-    Name = "FileNameOFObject", 
-    CustomName = "NameWhatever", 
+ESP:AddObjectListener(Workspace.ObjectPath,{ --object path
+    Name = "ObjectName",
+    CustomName = "CustomName", 
     Color = Color3.fromRGB(255, 255, 255), 
-    IsEnabled = "soda" 
+    IsEnabled = "soda",
+	Recursive = false --find children
 })
 ESP.soda = true
