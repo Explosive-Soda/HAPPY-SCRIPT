@@ -12,8 +12,8 @@ local color = Color3.new(1, 1, 1)
 local toggleKey = Enum.KeyCode.T  -- 默认快捷键为 T
 local hideKey = Enum.KeyCode.RightAlt  -- 默认快捷键为 RightAlt
 local function isAttackersAndDefendersEnemy(targetPlayer)
-    local attackersTeam = workspace:FindFirstChild("___teams_") and workspace.___teams_:FindFirstChild("attackers")
-    local defendersTeam = workspace:FindFirstChild("___teams_") and workspace.___teams_:FindFirstChild("defenders")
+    local attackersTeam = workspace:FindFirstChild("teams__") and workspace.teams__:FindFirstChild("attackers")
+    local defendersTeam = workspace:FindFirstChild("teams__") and workspace.teams__:FindFirstChild("defenders")
     
     if attackersTeam and defendersTeam then
         local isTargetAttacker = attackersTeam:FindFirstChild(targetPlayer.Name) ~= nil
