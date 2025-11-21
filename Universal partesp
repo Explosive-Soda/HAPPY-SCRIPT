@@ -6,11 +6,14 @@ ESP.Boxes = false
 ESP.Names = true
 
 -- object
-ESP:AddObjectListener(Workspace.ObjectPath,{ --object path
-    Name = "ObjectName",
-    CustomName = "CustomName", 
+ESP:AddObjectListener(Workspace.SpawnedEssences,{ --object path
+    Name = "ObjectName",--depends to delete, e.g. if only one path shown
+	    --CustomName = function(obj)
+        --return obj.Name  -- 这里返回对象的实际名称
+    --end, --(if want to use obj name instead of custom name)
     Color = Color3.fromRGB(255, 255, 255), 
     IsEnabled = "soda",
-	Recursive = false --find children
+	Recursive = false --find all children after parent path
 })
 ESP.soda = true
+--
