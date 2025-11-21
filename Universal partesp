@@ -6,8 +6,9 @@ ESP.Boxes = false
 ESP.Names = true
 
 -- object
-ESP:AddObjectListener(Workspace.SpawnedEssences,{ --object path
+ESP:AddObjectListener(Workspace.Objectpath,{ --object path
     Name = "ObjectName",--depends to delete, e.g. if only one path shown
+	CustomName = "CustomName",
 	    --CustomName = function(obj)
         --return obj.Name  -- 这里返回对象的实际名称
     --end, --(if want to use obj name instead of custom name)
