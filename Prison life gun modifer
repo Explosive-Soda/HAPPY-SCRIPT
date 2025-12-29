@@ -1,0 +1,9 @@
+while task.wait(1) do
+    for _, tool in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do
+        tool:SetAttribute("FireRate", 0.05)
+        tool:SetAttribute("Range", 1000)
+        tool:SetAttribute("AccurateRange", 500)
+        tool:SetAttribute("SpreadRadius", 0)
+        tool:SetAttribute("AutoFire", true)
+    end
+end
