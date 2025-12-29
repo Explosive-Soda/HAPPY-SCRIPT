@@ -1,0 +1,26 @@
+-- 为所有现有实体添加高亮
+for _, entity in ipairs(workspace.Entities:GetChildren()) do
+    if entity:IsA("Model") then
+        local highlight = Instance.new("Highlight")
+        highlight.Parent = entity
+        highlight.FillColor = Color3.fromRGB(255, 255, 255)
+        highlight.OutlineColor = Color3.fromRGB(0, 0, 0)
+        highlight.FillTransparency = 0.5
+        highlight.OutlineTransparency = 0.5
+        highlight.Name = "ESP_Highlight"
+    end
+end
+
+-- 监听新实体
+workspace.Entities.ChildAdded:Connect(function(entity)
+    wait(0.5)
+    if entity:IsA("Model") then
+        local highlight = Instance.new("Highlight")
+        highlight.Parent = entity
+        highlight.FillColor = Color3.fromRGB(255, 255, 255)
+        highlight.OutlineColor = Color3.fromRGB(0, 0, 0)
+        highlight.FillTransparency = 0.5
+        highlight.OutlineTransparency = 0.5
+        highlight.Name = "ESP_Highlight"
+    end
+end)
