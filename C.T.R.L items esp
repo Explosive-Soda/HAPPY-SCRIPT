@@ -1,0 +1,34 @@
+local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/Explosive-Soda/HAPPY-SCRIPT/refs/heads/main/Partesp%20source%20code"))()
+
+-- config
+ESP.Players = false
+ESP.Boxes = false
+ESP.Names = true
+
+-- object
+ESP:AddObjectListener(workspace.Map.References.ItemSpawners,{ --object path
+    Name = "Handle",--depends to delete, e.g. if only one path shown, no constant obj name
+		CustomName = function(obj)
+    		if obj.Parent then
+        		return obj.Parent.Name  
+    		end
+		end,  
+    Color = Color3.fromRGB(255, 255, 255), 
+    IsEnabled = "soda",
+	Recursive = true --find all children after parent path
+})
+ESP.soda = true
+--
+
+
+------------------------------------------------------------------------------------------------------
+	--CustomName = function(obj)
+    --return obj.Name  -- 这里返回对象的实际名称
+--end, --(if want to use obj name instead of custom name,replace CustomName with this)
+
+------------------------------------------------------------------------------------------------------------------
+--CustomName = function(obj)
+    --if obj.Parent then
+        --return obj.Parent.Name  
+    --end
+--end,	--（if want to make it parent name instead of custom name, replace CustomName with this)
