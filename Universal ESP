@@ -9,9 +9,7 @@ local RunService = game:GetService("RunService")
 local espEnabled = false
 local teamCheck = false
 local color = Color3.new(1, 1, 1)
-local toggleKey = Enum.KeyCode.T  -- 默认快捷键为 T
 local hideKey = Enum.KeyCode.RightAlt  -- 默认快捷键为 RightAlt
-local listeningForToggleKey = false
 local listeningForHideKey = false
 
 -- 新增Box ESP变量
@@ -120,7 +118,7 @@ local function makeRGB(y, isBoxColor)
 	end
 end
 
-local function makeKeyButton(y, label, isToggle)
+local function makeKeyButton(y, label)
 	local labelObj = makeLabel(label, y)
 	local button = Instance.new("TextButton", frame)
 	button.Position = UDim2.new(0, 90, 0, y)
@@ -139,11 +137,7 @@ local function makeKeyButton(y, label, isToggle)
 			if not gameProcessed then
 				if input.UserInputType == Enum.UserInputType.Keyboard then
 					local key = input.KeyCode
-					if isToggle then
-						toggleKey = key
-					else
-						hideKey = key
-					end
+					hideKey = key
 					button.Text = key.Name
 					conn:Disconnect()
 				end
@@ -196,8 +190,7 @@ thicknessBox.FocusLost:Connect(function()
 	end
 end)
 
-makeKeyButton(190, "TOGGLE KEY", true)
-makeKeyButton(220, "HIDE KEY", false)
+makeKeyButton(190, "HIDE KEY")
 
 -- Box ESP功能
 local function updateBoxESP()
@@ -362,13 +355,6 @@ Players.PlayerRemoving:Connect(onPlayerRemoving)
 UserInputService.InputBegan:Connect(function(input, gp)
 	if not gp and input.KeyCode == hideKey then
 		frame.Visible = not frame.Visible
-	end
-end)
-
--- 快捷键切换 ESP
-UserInputService.InputBegan:Connect(function(input, gp)
-	if not gp and input.KeyCode == toggleKey then
-		espEnabled = not espEnabled
 	end
 end)
 
