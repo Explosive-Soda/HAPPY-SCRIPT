@@ -1,0 +1,354 @@
+if game.CoreGui:FindFirstChild("UniversalESP") then game.CoreGui:FindFirstChild("UniversalESP"):Destroy() end
+
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+local espEnabled = false
+local teamCheck = false
+local color = Color3.new(1, 1, 1)
+local hideKey = Enum.KeyCode.RightAlt
+local listeningForHideKey = false
+
+-- Box ESP变量
+local boxESPEnabled = false
+local boxColor = Color3.new(1, 1, 1)
+local boxThickness = 1
+local boxESPDrawings = {}
+
+-- 新增：Distance ESP变量
+local distanceESPEnabled = false
+local distanceColor = Color3.new(1, 1, 1)
+local distanceDrawings = {}
+
+-- GUI 创建
+local gui = Instance.new("ScreenGui", game.CoreGui)
+gui.Name = "UniversalESP"
+gui.ResetOnSpawn = false
+
+local frame = Instance.new("Frame", gui)
+frame.Position = UDim2.new(0.5, -100, 0.5, -150)
+frame.Size = UDim2.new(0, 200, 0, 310)  -- 增加高度容纳新控件
+frame.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+frame.BorderColor3 = Color3.fromRGB(255, 255, 255)
+
+local function makeLabel(name, y)
+	local label = Instance.new("TextLabel", frame)
+	label.Text = name
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.BackgroundTransparency = 1
+	label.Position = UDim2.new(0, 10, 0, y)
+	label.Size = UDim2.new(0, 80, 0, 20)
+	label.Font = Enum.Font.SourceSans
+	label.TextSize = 14
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	return label
+end
+
+local function makeSwitch(y, stateCallback)
+	local button = Instance.new("TextButton", frame)
+	button.Position = UDim2.new(0, 140, 0, y)
+	button.Size = UDim2.new(0, 40, 0, 20)
+	button.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+	button.Text = ""
+	button.AutoButtonColor = false
+	button.BorderSizePixel = 0
+	button.TextTransparency = 1
+	button.ClipsDescendants = true
+	local knob = Instance.new("Frame", button)
+	knob.Size = UDim2.new(0, 18, 0, 18)
+	knob.Position = UDim2.new(0, 2, 0, 1)
+	knob.BackgroundColor3 = Color3.new(1, 1, 1)
+	knob.BorderSizePixel = 0
+	knob.Name = "Knob"
+	knob.BackgroundTransparency = 0
+	knob.ZIndex = 2
+	knob:TweenSizeAndPosition(UDim2.new(0, 18, 0, 18), UDim2.new(0, 2, 0, 1), "Out", "Sine", 0)
+
+	local state = true
+	local function updateState()
+		if state then
+			button.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+			knob:TweenPosition(UDim2.new(0, 20, 0, 1), "Out", "Sine", 0.2)
+		else
+			button.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+			knob:TweenPosition(UDim2.new(0, 2, 0, 1), "Out", "Sine", 0.2)
+		end
+		stateCallback(state)
+	end
+
+	button.MouseButton1Click:Connect(function()
+		state = not state
+		updateState()
+	end)
+
+	state = false
+	updateState()
+end
+
+local function makeRGB(y, mode)
+	local boxes = {}
+	for i, colorName in ipairs({"R", "G", "B"}) do
+		local box = Instance.new("TextBox", frame)
+		box.Position = UDim2.new(0, 90 + (i - 1) * 30, 0, y)
+		box.Size = UDim2.new(0, 28, 0, 20)
+		box.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		box.BorderColor3 = Color3.new(1, 1, 1)
+		box.Text = "255"
+		box.Font = Enum.Font.SourceSans
+		box.TextSize = 14
+		box.TextColor3 = Color3.new(0, 0, 0)
+		box.ClearTextOnFocus = true
+		box.FocusLost:Connect(function()
+			local r = tonumber(boxes[1].Text) or 255
+			local g = tonumber(boxes[2].Text) or 255
+			local b = tonumber(boxes[3].Text) or 255
+			local newColor = Color3.fromRGB(r, g, b)
+			
+			if mode == "box" then
+				boxColor = newColor
+				for _, boxDrawing in pairs(boxESPDrawings) do
+					for _, line in pairs(boxDrawing) do if line then line.Color = boxColor end end
+				end
+			elseif mode == "distance" then
+				distanceColor = newColor
+				for _, textDrawing in pairs(distanceDrawings) do
+					if textDrawing then textDrawing.Color = distanceColor end
+				end
+			else
+				color = newColor
+			end
+		end)
+		table.insert(boxes, box)
+	end
+end
+
+local function makeKeyButton(y, label)
+	local labelObj = makeLabel(label, y)
+	local button = Instance.new("TextButton", frame)
+	button.Position = UDim2.new(0, 90, 0, y)
+	button.Size = UDim2.new(0, 100, 0, 20)
+	button.Text = "Press Any Key"
+	button.Font = Enum.Font.SourceSans
+	button.TextSize = 14
+	button.TextColor3 = Color3.new(1, 1, 1)
+	button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	button.BorderColor3 = Color3.fromRGB(255, 255, 255)
+
+	button.MouseButton1Click:Connect(function()
+		button.Text = "Waiting..."
+		local conn
+		conn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+			if not gameProcessed then
+				if input.UserInputType == Enum.UserInputType.Keyboard then
+					local key = input.KeyCode
+					hideKey = key
+					button.Text = key.Name
+					conn:Disconnect()
+				end
+			end
+		end)
+	end)
+end
+
+-- UI 布局排列
+makeLabel("ESP", 10)
+makeSwitch(10, function(val) espEnabled = val end)
+
+makeLabel("BOX ESP", 40)
+makeSwitch(40, function(val) boxESPEnabled = val end)
+
+makeLabel("DISTANCE ESP", 70) -- 新增距离开关
+makeSwitch(70, function(val) distanceESPEnabled = val end)
+
+makeLabel("TEAMCHECK", 100)
+makeSwitch(100, function(val) teamCheck = val end)
+
+makeLabel("ESP COLOUR", 130)
+makeRGB(130, "esp")
+
+makeLabel("BOX COLOUR", 160)
+makeRGB(160, "box")
+
+makeLabel("DIST COLOUR", 190) -- 新增距离颜色
+makeRGB(190, "distance")
+
+makeLabel("BOX THICK", 220)
+local thicknessBox = Instance.new("TextBox", frame)
+thicknessBox.Position = UDim2.new(0, 90, 0, 220)
+thicknessBox.Size = UDim2.new(0, 40, 0, 20)
+thicknessBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+thicknessBox.BorderColor3 = Color3.new(1, 1, 1)
+thicknessBox.Text = "1"
+thicknessBox.Font = Enum.Font.SourceSans
+thicknessBox.TextSize = 14
+thicknessBox.TextColor3 = Color3.new(0, 0, 0)
+thicknessBox.ClearTextOnFocus = true
+thicknessBox.FocusLost:Connect(function()
+	local thickness = tonumber(thicknessBox.Text) or 1
+	boxThickness = math.clamp(thickness, 1, 5)
+	thicknessBox.Text = tostring(boxThickness)
+	if boxESPEnabled then
+		for _, boxDrawing in pairs(boxESPDrawings) do
+			for _, line in pairs(boxDrawing) do if line then line.Thickness = boxThickness end end
+		end
+	end
+end)
+
+makeKeyButton(250, "HIDE KEY")
+
+-- 更新 Box 和 Distance ESP
+local function updateDrawings()
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character:FindFirstChild("HumanoidRootPart") then
+			local char = player.Character
+			local hrp = char.HumanoidRootPart
+			local alive = char.Humanoid.Health > 0
+			local isEnemy = not teamCheck or player.TeamColor ~= LocalPlayer.TeamColor
+
+			if alive and isEnemy then
+				local head = char:FindFirstChild("Head")
+				local torso = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
+				
+				if head and torso then
+					local hrpPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
+					
+					-- 1. 处理 Box ESP
+					if boxESPEnabled and onScreen then
+						if not boxESPDrawings[player] then
+							local box = {Top = Drawing.new("Line"), Bottom = Drawing.new("Line"), Left = Drawing.new("Line"), Right = Drawing.new("Line")}
+							for _, line in pairs(box) do line.Thickness = boxThickness; line.Color = boxColor; line.Visible = true end
+							boxESPDrawings[player] = box
+						end
+						
+						local headPos = workspace.CurrentCamera:WorldToViewportPoint(head.Position)
+						local torsoPos = workspace.CurrentCamera:WorldToViewportPoint(torso.Position)
+						local height = math.abs(headPos.Y - torsoPos.Y) * 2.5
+						local width = height * 0.6
+						local topY, bottomY = headPos.Y - height * 0.3, torsoPos.Y + height * 0.2
+						local leftX, rightX = torsoPos.X - width / 2, torsoPos.X + width / 2
+						
+						local box = boxESPDrawings[player]
+						if box.Top then box.Top.From, box.Top.To = Vector2.new(leftX, topY), Vector2.new(rightX, topY) end
+						if box.Bottom then box.Bottom.From, box.Bottom.To = Vector2.new(leftX, bottomY), Vector2.new(rightX, bottomY) end
+						if box.Left then box.Left.From, box.Left.To = Vector2.new(leftX, topY), Vector2.new(leftX, bottomY) end
+						if box.Right then box.Right.From, box.Right.To = Vector2.new(rightX, topY), Vector2.new(rightX, bottomY) end
+						for _, line in pairs(box) do if line then line.Visible = true end end
+					else
+						if boxESPDrawings[player] then
+							for _, line in pairs(boxESPDrawings[player]) do if line then line.Visible = false end end
+						end
+					end
+
+					-- 2. 处理 Distance ESP
+					if distanceESPEnabled and onScreen and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+						if not distanceDrawings[player] then
+							local text = Drawing.new("Text")
+							text.Size = 16
+							text.Center = true
+							text.Outline = true
+							text.OutlineColor = Color3.new(0, 0, 0)
+							text.Color = distanceColor
+							text.Visible = true
+							distanceDrawings[player] = text
+						end
+						
+						local myHrp = LocalPlayer.Character.HumanoidRootPart
+						local dist = math.floor((hrp.Position - myHrp.Position).Magnitude)
+						local headPos = workspace.CurrentCamera:WorldToViewportPoint(head.Position)
+						
+						local text = distanceDrawings[player]
+						text.Text = "[" .. tostring(dist) .. " studs]"
+						text.Position = Vector2.new(headPos.X, headPos.Y - 25) -- 显示在头顶上方
+						text.Visible = true
+					else
+						if distanceDrawings[player] then distanceDrawings[player].Visible = false end
+					end
+				end
+			else
+				-- 玩家死亡或不符条件，隐藏
+				if boxESPDrawings[player] then
+					for _, line in pairs(boxESPDrawings[player]) do if line then line.Visible = false end end
+				end
+				if distanceDrawings[player] then distanceDrawings[player].Visible = false end
+			end
+		else
+			-- 玩家不存在，清理 Drawing 实例防止内存泄漏
+			if boxESPDrawings[player] then
+				for _, line in pairs(boxESPDrawings[player]) do if line then line:Remove() end end
+				boxESPDrawings[player] = nil
+			end
+			if distanceDrawings[player] then
+				distanceDrawings[player]:Remove()
+				distanceDrawings[player] = nil
+			end
+		end
+	end
+end
+
+-- 玩家离开清理
+local function removePlayerDrawings(player)
+	if boxESPDrawings[player] then
+		for _, line in pairs(boxESPDrawings[player]) do if line then line:Remove() end end
+		boxESPDrawings[player] = nil
+	end
+	if distanceDrawings[player] then
+		distanceDrawings[player]:Remove()
+		distanceDrawings[player] = nil
+	end
+end
+
+Players.PlayerRemoving:Connect(removePlayerDrawings)
+
+-- 显隐与拖拽
+UserInputService.InputBegan:Connect(function(input, gp)
+	if not gp and input.KeyCode == hideKey then frame.Visible = not frame.Visible end
+end)
+
+local dragging, dragStart, startPos = false, nil, nil
+frame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true; dragStart = input.Position; startPos = frame.Position
+	end
+end)
+frame.InputChanged:Connect(function(input)
+	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local delta = input.Position - dragStart
+		frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	end
+end)
+frame.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+end)
+
+-- 核心渲染循环
+RunService.RenderStepped:Connect(function()
+	-- Highlight ESP 逻辑保持不变
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") then
+			local char = player.Character
+			if char.Humanoid.Health > 0 and (not teamCheck or player.TeamColor ~= LocalPlayer.TeamColor) then
+				local hl = char:FindFirstChild("Highlight") or Instance.new("Highlight", char)
+				hl.FillColor = color
+				hl.OutlineColor = Color3.new(0, 0, 0)
+				hl.OutlineTransparency = 0.5
+				hl.Enabled = espEnabled
+				hl.Adornee = char
+			else
+				if char:FindFirstChild("Highlight") then char.Highlight.Enabled = false end
+			end
+		end
+	end
+	
+	-- 刷新 Drawing (Box & Distance)
+	updateDrawings()
+end)
+
+-- 全局清理
+LocalPlayer:GetPropertyChangedSignal("Parent"):Connect(function()
+	if not LocalPlayer.Parent then
+		for _, v in pairs(boxESPDrawings) do for _, line in pairs(v) do if line then line:Remove() end end end
+		for _, text in pairs(distanceDrawings) do if text then text:Remove() end end
+	end
+end)
