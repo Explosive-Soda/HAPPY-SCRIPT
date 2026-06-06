@@ -1,0 +1,150 @@
+-- Roblox Executor Script / Executor 脚本
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local localPlayer = Players.LocalPlayer
+local PlayerGui = localPlayer:WaitForChild("PlayerGui")
+
+----------------------------------------------------------------
+-- 1. GUI 部分 / GUI Section
+----------------------------------------------------------------
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "InfoGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = PlayerGui
+
+local frame = Instance.new("Frame")
+frame.Name = "GrayBlock"
+frame.Size = UDim2.new(0, 120, 0, 60) 
+frame.Position = UDim2.new(1, -230, 0, 15) 
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30) 
+frame.BorderSizePixel = 0
+frame.Parent = screenGui
+
+local line1 = Instance.new("TextLabel")
+line1.Name = "Line1"
+line1.Size = UDim2.new(1, -20, 0, 25)
+line1.Position = UDim2.new(0, 10, 0, 5)
+line1.BackgroundTransparency = 1
+line1.TextColor3 = Color3.fromRGB(255, 255, 255) 
+line1.TextSize = 14
+line1.Font = Enum.Font.SourceSansBold
+line1.TextXAlignment = Enum.TextXAlignment.Left
+line1.Text = "Serial: Waiting..."
+line1.Parent = frame
+
+local line2 = Instance.new("TextLabel")
+line2.Name = "Line2"
+line2.Size = UDim2.new(1, -20, 0, 25)
+line2.Position = UDim2.new(0, 10, 0, 30) 
+line2.BackgroundTransparency = 1
+line2.TextColor3 = Color3.fromRGB(255, 255, 255) 
+line2.TextSize = 14
+line2.Font = Enum.Font.SourceSansBold
+line2.TextXAlignment = Enum.TextXAlignment.Left
+line2.Text = "Colors: Waiting..."
+line2.Parent = frame
+
+----------------------------------------------------------------
+-- 2. 核心解密逻辑 / Core Decryption Logic
+----------------------------------------------------------------
+task.spawn(function()
+    local mainCardReader = Workspace:WaitForChild("prop_stadium_cardReader", 10)
+    if not mainCardReader then 
+        line1.Text = "Main Path Error"
+        return 
+    end
+    
+    local mainLabel = mainCardReader:WaitForChild("main", 5):WaitForChild("serial", 5):WaitForChild("SurfaceGui", 5):WaitForChild("TextLabel", 5)
+
+    local function getBlueprintFolder()
+        local bp = Workspace:FindFirstChild("Blueprints")
+        if bp then
+            local tableRNG = bp:FindFirstChild("prop_stadium_blueprintTableRNG")
+            if tableRNG then
+                return tableRNG:FindFirstChild("prop_stadium_blueprint")
+            end
+        end
+        return nil
+    end
+
+    local function checkAndMatch()
+        local currentSerial = mainLabel.Text
+        line1.Text = "Serial: " .. currentSerial
+
+        if currentSerial == "" or currentSerial == "Label" or currentSerial == "TextLabel" then
+            line2.Text = "Colors: Idle..."
+            return
+        end
+
+        local blueprintsFolder = getBlueprintFolder()
+        if not blueprintsFolder then
+            line2.Text = "Colors: Path Error"
+            return
+        end
+
+        for _, numName in ipairs({"1", "2", "3"}) do
+            local numFolder = blueprintsFolder:FindFirstChild(numName)
+            if numFolder then
+                local success, subLabel = pcall(function()
+                    return numFolder:FindFirstChild("serial"):FindFirstChild("SurfaceGui"):FindFirstChild("TextLabel")
+                end)
+
+                if success and subLabel and subLabel.Text == currentSerial then
+                    local colorResult = ""
+                    
+                    for i = 1, 4 do
+                        local successColor, colorLabel = pcall(function()
+                            local colorsDir = numFolder:FindFirstChild("colors")
+                            local part = colorsDir:FindFirstChild(tostring(i))
+                            return part:FindFirstChild("SurfaceGui"):FindFirstChild("TextLabel")
+                        end)
+
+                        if successColor and colorLabel then
+                            colorResult = colorResult .. tostring(colorLabel.Text)
+                        else
+                            colorResult = colorResult .. "?"
+                        end
+                    end
+                    
+                    line2.Text = "Colors: " .. colorResult
+                    return
+                end
+            end
+        end
+        line2.Text = "Colors: No Match Found"
+    end
+
+    mainLabel:GetPropertyChangedSignal("Text"):Connect(checkAndMatch)
+    
+    while true do
+        checkAndMatch()
+        task.wait(1.5)
+    end
+end)
+
+----------------------------------------------------------------
+-- 3. 高亮部分 / Highlight Section
+----------------------------------------------------------------
+task.spawn(function()
+    -- 获取并加上房卡的路径 / Add KeyCard to paths
+    local map = Workspace:WaitForChild("Map", 10)
+    local mapEntities = Workspace:WaitForChild("mapEntities", 10)
+    
+    local keycard = map and map:WaitForChild("KeyCard", 5):WaitForChild("KeyCard", 5)
+    local hooks = mapEntities and mapEntities:WaitForChild("missionItems", 5):WaitForChild("Hooks", 5):WaitForChild("missionItem_hook", 5)
+    local ropes = mapEntities and mapEntities:WaitForChild("missionItems", 5):WaitForChild("Ropes", 5):WaitForChild("missionItem_rope", 5)
+    
+    local targets = {hooks, ropes, keycard}
+    
+    for _, object in ipairs(targets) do
+        if object then
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "MissionHighlight"
+            highlight.FillColor = Color3.fromRGB(0, 255, 0) 
+            highlight.FillTransparency = 0.4 
+            highlight.OutlineTransparency = 1 
+            highlight.Adornee = object
+            highlight.Parent = object
+        end
+    end
+end)
