@@ -1,0 +1,205 @@
+local UIS = game:GetService("UserInputService")
+local coreGui = game:GetService("CoreGui")
+local players = game:GetService("Players")
+
+-- 清理旧的 / Clean up old GUI
+if coreGui:FindFirstChild("WendigoESP_Gui") then
+	coreGui.WendigoESP_Gui:Destroy()
+end
+
+-- 1. 创建 GUI 容器 / Create GUI Container
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "WendigoESP_Gui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = coreGui
+
+-- 2. 面板加长到 3 个开关 / Extended Main Frame for 3 Toggles
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 140, 0, 115) -- 高度增加到 115
+mainFrame.Position = UDim2.new(0.05, 0, 0.05, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+-- 封装一个统一的开关按钮样式生成器 / Helper to create toggle rows
+local function createToggleRow(text, yOffset)
+	local title = Instance.new("TextLabel")
+	title.Size = UDim2.new(0.65, 0, 0, 30)
+	title.Position = UDim2.new(0, 8, 0, yOffset)
+	title.Text = text
+	title.TextColor3 = Color3.fromRGB(255, 255, 255)
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.Font = Enum.Font.SourceSansBold
+	title.TextSize = 13
+	title.BackgroundTransparency = 1
+	title.Parent = mainFrame
+
+	local button = Instance.new("TextButton")
+	button.Size = UDim2.new(0, 22, 0, 22)
+	button.Position = UDim2.new(1, -28, 0, yOffset + 4)
+	button.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	button.BorderSizePixel = 0
+	button.Text = ""
+	button.Font = Enum.Font.SourceSansBold
+	button.TextSize = 16
+	button.Parent = mainFrame
+
+	return button
+end
+
+local button1 = createToggleRow("Wendigo ESP", 5)
+local button2 = createToggleRow("Item ESP", 40)
+local button3 = createToggleRow("Player ESP", 75)
+
+-- ==================== TOGGLE 1: WENDIGO ESP (防报错安全版) ====================
+local t1_on = false
+
+local function applyWendigoHighlight(target)
+	if not target or not t1_on then return end
+	local hl = target:FindFirstChild("WendigoHighlight")
+	if not hl then
+		hl = Instance.new("Highlight")
+		hl.Name = "WendigoHighlight"
+		hl.FillColor = Color3.fromRGB(255, 0, 0)
+		hl.FillTransparency = 0.8
+		hl.OutlineTransparency = 1
+		hl.Parent = target
+	end
+	hl.Enabled = true
+end
+
+button1.MouseButton1Click:Connect(function()
+	t1_on = not t1_on
+	
+	-- 动态获取，找不到也不报错 / Safely check if exists without locking up
+	local aiFolder = workspace:FindFirstChild("AI")
+	local wendigo = aiFolder and aiFolder:FindFirstChild("WendigoAI")
+	
+	if t1_on then
+		button1.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+		button1.Text = "✓"
+		button1.TextColor3 = Color3.fromRGB(255, 255, 255)
+		if wendigo then applyWendigoHighlight(wendigo) end
+	else
+		button1.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		button1.Text = ""
+		if wendigo and wendigo:FindFirstChild("WendigoHighlight") then
+			wendigo.WendigoHighlight.Enabled = false
+		end
+	end
+end)
+
+-- 监听新局 Wendigo 刷新 / Watch for Wendigo spawning mid-game
+task.spawn(function()
+	local aiFolder = workspace:WaitForChild("AI", 5) -- 最多等5秒，不等死
+	if aiFolder then
+		aiFolder.ChildAdded:Connect(function(child)
+			if child.Name == "WendigoAI" then
+				task.wait(0.2) -- 稳一手，等实例加载完
+				applyWendigoHighlight(child)
+			end
+		end)
+	end
+end)
+
+-- ==================== TOGGLE 2: ITEM ESP ====================
+local t2_on = false
+
+local function highlightItem(item)
+	if item:IsA("Model") or item:IsA("BasePart") then
+		local hl = item:FindFirstChild("ItemHighlight")
+		if not hl then
+			hl = Instance.new("Highlight")
+			hl.Name = "ItemHighlight"
+			hl.FillColor = Color3.fromRGB(144, 238, 144)
+			hl.FillTransparency = 0.9
+			hl.OutlineTransparency = 1
+			hl.Parent = item
+		end
+		hl.Enabled = t2_on
+	end
+end
+
+button2.MouseButton1Click:Connect(function()
+	t2_on = not t2_on
+	
+	local itemFolder = workspace:FindFirstChild("ItemSpawners") and workspace.ItemSpawners:FindFirstChild("ShopItemPickups")
+	if itemFolder then
+		for _, child in ipairs(itemFolder:GetChildren()) do highlightItem(child) end
+	end
+	
+	if t2_on then
+		button2.BackgroundColor3 = Color3.fromRGB(144, 238, 144)
+		button2.Text = "✓"
+		button2.TextColor3 = Color3.fromRGB(40, 40, 40)
+	else
+		button2.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		button2.Text = ""
+	end
+end)
+
+task.spawn(function()
+	local itemFolder = workspace:WaitForChild("ItemSpawners", 5) and workspace.ItemSpawners:WaitForChild("ShopItemPickups", 5)
+	if itemFolder then
+		itemFolder.ChildAdded:Connect(function(child)
+			task.wait(0.1)
+			highlightItem(child)
+		end)
+	end
+end)
+
+-- ==================== TOGGLE 3: PLAYER ESP ====================
+local t3_on = false
+
+local function highlightPlayer(plr)
+	-- 别把自己高亮了 / Don't highlight local player
+	if plr == players.LocalPlayer then return end 
+	
+	local function apply(char)
+		if not char then return end
+		local hl = char:FindFirstChild("PlayerHighlight")
+		if not hl then
+			hl = Instance.new("Highlight")
+			hl.Name = "PlayerHighlight"
+			hl.FillColor = Color3.fromRGB(255, 255, 255) -- 纯白
+			hl.FillTransparency = 0.85 -- 0.85 透明度
+			hl.OutlineTransparency = 1 -- 无 Outline
+			hl.Parent = char
+		end
+		hl.Enabled = t3_on
+	end
+	
+	apply(plr.Character)
+	plr.CharacterAdded:Connect(apply) -- 玩家死后复活继续挂上 ESP
+end
+
+button3.MouseButton1Click:Connect(function()
+	t3_on = not t3_on
+	
+	for _, plr in ipairs(players:GetPlayers()) do
+		highlightPlayer(plr)
+	end
+	
+	if t3_on then
+		button3.BackgroundColor3 = Color3.fromRGB(120, 120, 120) -- 开启玩家ESP变灰（对应白光）
+		button3.Text = "✓"
+		button3.TextColor3 = Color3.fromRGB(255, 255, 255)
+	else
+		button3.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		button3.Text = ""
+	end
+end)
+
+-- 监听后续加入的新玩家 / Watch for new players joining
+players.PlayerAdded:Connect(function(plr)
+	highlightPlayer(plr)
+end)
+
+-- ==================== GLOBAL HOTKEY ====================
+UIS.InputBegan:Connect(function(input, gameProcessed)
+	if not gameProcessed and input.KeyCode == Enum.KeyCode.RightAlt then
+		mainFrame.Visible = not mainFrame.Visible
+	end
+end)
