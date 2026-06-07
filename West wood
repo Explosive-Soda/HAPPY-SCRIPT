@@ -13,9 +13,9 @@ screenGui.Name = "WendigoESP_Gui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = coreGui
 
--- 2. 面板加长到 3 个开关 / Extended Main Frame for 3 Toggles
+-- 2. 主面板 / Main Frame
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 140, 0, 115) -- 高度增加到 115
+mainFrame.Size = UDim2.new(0, 140, 0, 150)
 mainFrame.Position = UDim2.new(0.05, 0, 0.05, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 mainFrame.BorderSizePixel = 0
@@ -52,8 +52,9 @@ end
 local button1 = createToggleRow("Wendigo ESP", 5)
 local button2 = createToggleRow("Item ESP", 40)
 local button3 = createToggleRow("Player ESP", 75)
+local button4 = createToggleRow("Chest ESP", 110)
 
--- ==================== TOGGLE 1: WENDIGO ESP (防报错安全版) ====================
+-- ==================== TOGGLE 1: WENDIGO ESP ====================
 local t1_on = false
 
 local function applyWendigoHighlight(target)
@@ -72,8 +73,6 @@ end
 
 button1.MouseButton1Click:Connect(function()
 	t1_on = not t1_on
-	
-	-- 动态获取，找不到也不报错 / Safely check if exists without locking up
 	local aiFolder = workspace:FindFirstChild("AI")
 	local wendigo = aiFolder and aiFolder:FindFirstChild("WendigoAI")
 	
@@ -91,13 +90,12 @@ button1.MouseButton1Click:Connect(function()
 	end
 end)
 
--- 监听新局 Wendigo 刷新 / Watch for Wendigo spawning mid-game
 task.spawn(function()
-	local aiFolder = workspace:WaitForChild("AI", 5) -- 最多等5秒，不等死
+	local aiFolder = workspace:WaitForChild("AI", 5)
 	if aiFolder then
 		aiFolder.ChildAdded:Connect(function(child)
 			if child.Name == "WendigoAI" then
-				task.wait(0.2) -- 稳一手，等实例加载完
+				task.wait(0.2)
 				applyWendigoHighlight(child)
 			end
 		end)
@@ -124,7 +122,6 @@ end
 
 button2.MouseButton1Click:Connect(function()
 	t2_on = not t2_on
-	
 	local itemFolder = workspace:FindFirstChild("ItemSpawners") and workspace.ItemSpawners:FindFirstChild("ShopItemPickups")
 	if itemFolder then
 		for _, child in ipairs(itemFolder:GetChildren()) do highlightItem(child) end
@@ -154,36 +151,30 @@ end)
 local t3_on = false
 
 local function highlightPlayer(plr)
-	-- 别把自己高亮了 / Don't highlight local player
 	if plr == players.LocalPlayer then return end 
-	
 	local function apply(char)
 		if not char then return end
 		local hl = char:FindFirstChild("PlayerHighlight")
 		if not hl then
 			hl = Instance.new("Highlight")
 			hl.Name = "PlayerHighlight"
-			hl.FillColor = Color3.fromRGB(255, 255, 255) -- 纯白
-			hl.FillTransparency = 0.85 -- 0.85 透明度
-			hl.OutlineTransparency = 1 -- 无 Outline
+			hl.FillColor = Color3.fromRGB(255, 255, 255)
+			hl.FillTransparency = 0.85
+			hl.OutlineTransparency = 1
 			hl.Parent = char
 		end
 		hl.Enabled = t3_on
 	end
-	
 	apply(plr.Character)
-	plr.CharacterAdded:Connect(apply) -- 玩家死后复活继续挂上 ESP
+	plr.CharacterAdded:Connect(apply)
 end
 
 button3.MouseButton1Click:Connect(function()
 	t3_on = not t3_on
-	
-	for _, plr in ipairs(players:GetPlayers()) do
-		highlightPlayer(plr)
-	end
+	for _, plr in ipairs(players:GetPlayers()) do highlightPlayer(plr) end
 	
 	if t3_on then
-		button3.BackgroundColor3 = Color3.fromRGB(120, 120, 120) -- 开启玩家ESP变灰（对应白光）
+		button3.BackgroundColor3 = Color3.fromRGB(120, 120, 120)
 		button3.Text = "✓"
 		button3.TextColor3 = Color3.fromRGB(255, 255, 255)
 	else
@@ -192,9 +183,65 @@ button3.MouseButton1Click:Connect(function()
 	end
 end)
 
--- 监听后续加入的新玩家 / Watch for new players joining
-players.PlayerAdded:Connect(function(plr)
-	highlightPlayer(plr)
+players.PlayerAdded:Connect(function(plr) highlightPlayer(plr) end)
+
+-- ==================== TOGGLE 4: CHEST ESP ====================
+local t4_on = false
+local chestColor = Color3.fromRGB(173, 216, 230) -- 浅蓝色
+
+local function applyChestHighlight(obj)
+	if not obj or not (obj:IsA("Model") or obj:IsA("BasePart")) then return end
+	local hl = obj:FindFirstChild("ChestHighlight")
+	if not hl then
+		hl = Instance.new("Highlight")
+		hl.Name = "ChestHighlight"
+		hl.FillColor = chestColor
+		hl.FillTransparency = 0.85
+		hl.OutlineTransparency = 1
+		hl.Parent = obj
+	end
+	hl.Enabled = t4_on
+end
+
+local function updateCaches()
+	local cachesFolder = workspace:FindFirstChild("Caches")
+	if cachesFolder then
+		-- 1. 直接高亮 CacheBox 整体 / Directly highlight the entire CacheBox
+		local cacheBox = cachesFolder:FindFirstChild("CacheBox")
+		if cacheBox then applyChestHighlight(cacheBox) end
+		
+		-- 2. 检查 Paper
+		local paper = cachesFolder:FindFirstChild("Paper")
+		if paper then applyChestHighlight(paper) end
+	end
+end
+
+button4.MouseButton1Click:Connect(function()
+	t4_on = not t4_on
+	updateCaches()
+	
+	if t4_on then
+		button4.BackgroundColor3 = chestColor
+		button4.Text = "✓"
+		button4.TextColor3 = Color3.fromRGB(40, 40, 40)
+	else
+		button4.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		button4.Text = ""
+	end
+end)
+
+-- 动态监听，确保即使游戏跨局重刷也能捕捉到整个 CacheBox
+task.spawn(function()
+	local cachesFolder = workspace:WaitForChild("Caches", 5)
+	if cachesFolder then
+		cachesFolder.ChildAdded:Connect(function(child)
+			-- 监听 Paper 或整个 CacheBox 生成 / Watch for Paper or the entire CacheBox
+			if child.Name == "Paper" or child.Name == "CacheBox" then
+				task.wait(0.1)
+				applyChestHighlight(child)
+			end
+		end)
+	end
 end)
 
 -- ==================== GLOBAL HOTKEY ====================
