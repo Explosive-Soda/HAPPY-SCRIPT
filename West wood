@@ -23,7 +23,7 @@ mainFrame.Active = true
 mainFrame.Draggable = true
 mainFrame.Parent = screenGui
 
--- 封装一个统一的开关按钮样式生成器 / Helper to create toggle rows
+-- 开关样式生成器 / Helper to create toggle rows
 local function createToggleRow(text, yOffset)
 	local title = Instance.new("TextLabel")
 	title.Size = UDim2.new(0.65, 0, 0, 30)
@@ -46,17 +46,16 @@ local function createToggleRow(text, yOffset)
 	button.TextSize = 16
 	button.Parent = mainFrame
 
-	return button
+	return title, button
 end
 
-local button1 = createToggleRow("Wendigo ESP", 5)
-local button2 = createToggleRow("Item ESP", 40)
-local button3 = createToggleRow("Player ESP", 75)
-local button4 = createToggleRow("Chest ESP", 110)
+local _, button1 = createToggleRow("Wendigo ESP", 5)
+local _, button2 = createToggleRow("Item ESP", 40)
+local _, button3 = createToggleRow("Player ESP", 75)
+local chestTitle, button4 = createToggleRow("Chest ESP", 110)
 
 -- ==================== TOGGLE 1: WENDIGO ESP ====================
 local t1_on = false
-
 local function applyWendigoHighlight(target)
 	if not target or not t1_on then return end
 	local hl = target:FindFirstChild("WendigoHighlight")
@@ -75,7 +74,6 @@ button1.MouseButton1Click:Connect(function()
 	t1_on = not t1_on
 	local aiFolder = workspace:FindFirstChild("AI")
 	local wendigo = aiFolder and aiFolder:FindFirstChild("WendigoAI")
-	
 	if t1_on then
 		button1.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 		button1.Text = "✓"
@@ -84,9 +82,7 @@ button1.MouseButton1Click:Connect(function()
 	else
 		button1.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 		button1.Text = ""
-		if wendigo and wendigo:FindFirstChild("WendigoHighlight") then
-			wendigo.WendigoHighlight.Enabled = false
-		end
+		if wendigo and wendigo:FindFirstChild("WendigoHighlight") then wendigo.WendigoHighlight.Enabled = false end
 	end
 end)
 
@@ -94,17 +90,13 @@ task.spawn(function()
 	local aiFolder = workspace:WaitForChild("AI", 5)
 	if aiFolder then
 		aiFolder.ChildAdded:Connect(function(child)
-			if child.Name == "WendigoAI" then
-				task.wait(0.2)
-				applyWendigoHighlight(child)
-			end
+			if child.Name == "WendigoAI" then task.wait(0.2) applyWendigoHighlight(child) end
 		end)
 	end
 end)
 
 -- ==================== TOGGLE 2: ITEM ESP ====================
 local t2_on = false
-
 local function highlightItem(item)
 	if item:IsA("Model") or item:IsA("BasePart") then
 		local hl = item:FindFirstChild("ItemHighlight")
@@ -126,7 +118,6 @@ button2.MouseButton1Click:Connect(function()
 	if itemFolder then
 		for _, child in ipairs(itemFolder:GetChildren()) do highlightItem(child) end
 	end
-	
 	if t2_on then
 		button2.BackgroundColor3 = Color3.fromRGB(144, 238, 144)
 		button2.Text = "✓"
@@ -140,16 +131,12 @@ end)
 task.spawn(function()
 	local itemFolder = workspace:WaitForChild("ItemSpawners", 5) and workspace.ItemSpawners:WaitForChild("ShopItemPickups", 5)
 	if itemFolder then
-		itemFolder.ChildAdded:Connect(function(child)
-			task.wait(0.1)
-			highlightItem(child)
-		end)
+		itemFolder.ChildAdded:Connect(function(child) task.wait(0.1) highlightItem(child) end)
 	end
 end)
 
 -- ==================== TOGGLE 3: PLAYER ESP ====================
 local t3_on = false
-
 local function highlightPlayer(plr)
 	if plr == players.LocalPlayer then return end 
 	local function apply(char)
@@ -172,7 +159,6 @@ end
 button3.MouseButton1Click:Connect(function()
 	t3_on = not t3_on
 	for _, plr in ipairs(players:GetPlayers()) do highlightPlayer(plr) end
-	
 	if t3_on then
 		button3.BackgroundColor3 = Color3.fromRGB(120, 120, 120)
 		button3.Text = "✓"
@@ -182,10 +168,9 @@ button3.MouseButton1Click:Connect(function()
 		button3.Text = ""
 	end
 end)
-
 players.PlayerAdded:Connect(function(plr) highlightPlayer(plr) end)
 
--- ==================== TOGGLE 4: CHEST ESP ====================
+-- ==================== TOGGLE 4: CHEST ESP & CODE SCANNER ====================
 local t4_on = false
 local chestColor = Color3.fromRGB(173, 216, 230) -- 浅蓝色
 
@@ -203,17 +188,42 @@ local function applyChestHighlight(obj)
 	hl.Enabled = t4_on
 end
 
+-- 仅读取 Paper 里的密码 / Only read code from Paper, no highlighting
+local function scanCode()
+	if not t4_on then 
+		chestTitle.Text = "Chest ESP"
+		return 
+	end
+
+	local cachesFolder = workspace:FindFirstChild("Caches")
+	if cachesFolder then
+		for _, child in ipairs(cachesFolder:GetChildren()) do
+			if child.Name == "Paper" then
+				local label = child:FindFirstChild("SurfaceGui", true) and child.SurfaceGui:FindFirstChild("TextLabel")
+				if label and label.Text ~= "" then
+					local code = string.match(label.Text, "code is (%d+)") or string.match(label.Text, "(%d+)$")
+					if code then
+						chestTitle.Text = "Code: " .. code
+						return 
+					end
+				end
+			end
+		end
+	end
+	chestTitle.Text = "Chest ESP"
+end
+
 local function updateCaches()
 	local cachesFolder = workspace:FindFirstChild("Caches")
 	if cachesFolder then
-		-- 1. 直接高亮 CacheBox 整体 / Directly highlight the entire CacheBox
-		local cacheBox = cachesFolder:FindFirstChild("CacheBox")
-		if cacheBox then applyChestHighlight(cacheBox) end
-		
-		-- 2. 检查 Paper
-		local paper = cachesFolder:FindFirstChild("Paper")
-		if paper then applyChestHighlight(paper) end
+		for _, child in ipairs(cachesFolder:GetChildren()) do
+			-- 只给 CacheBox 上高亮 / Only highlight CacheBox
+			if child.Name == "CacheBox" then
+				applyChestHighlight(child)
+			end
+		end
 	end
+	scanCode()
 end
 
 button4.MouseButton1Click:Connect(function()
@@ -230,15 +240,29 @@ button4.MouseButton1Click:Connect(function()
 	end
 end)
 
--- 动态监听，确保即使游戏跨局重刷也能捕捉到整个 CacheBox
+-- 后台刷新器
+task.spawn(function()
+	while true do
+		task.wait(1)
+		if t4_on then
+			pcall(function()
+				updateCaches()
+			end)
+		end
+	end
+end)
+
+-- 动态监听文件夹生成
 task.spawn(function()
 	local cachesFolder = workspace:WaitForChild("Caches", 5)
 	if cachesFolder then
 		cachesFolder.ChildAdded:Connect(function(child)
-			-- 监听 Paper 或整个 CacheBox 生成 / Watch for Paper or the entire CacheBox
-			if child.Name == "Paper" or child.Name == "CacheBox" then
-				task.wait(0.1)
+			if child.Name == "CacheBox" then
+				task.wait(0.2)
 				applyChestHighlight(child)
+			elseif child.Name == "Paper" then
+				task.wait(0.2)
+				scanCode() -- 刷出Paper时直接读取密码
 			end
 		end)
 	end
