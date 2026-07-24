@@ -1,3 +1,4 @@
+--version03
 if game.CoreGui:FindFirstChild("UniversalESP") then game.CoreGui:FindFirstChild("UniversalESP"):Destroy() end
 
 local UserInputService = game:GetService("UserInputService")
