@@ -1,0 +1,57 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local isLeftMouseDown = false
+local firingTask = nil
+
+-- 发射子弹函数 / Shoot Projectile Function
+local function fireProjectile()
+    local character = player.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    local camera = workspace.CurrentCamera
+    
+    if humanoidRootPart and camera then
+        game:GetService("ReplicatedStorage").Packages.Knit.Services.WeaponService.RE.ShootProjectile:FireServer(
+            humanoidRootPart.Position,
+            camera.CFrame.LookVector,
+            4.000000476837158
+        )
+    end
+end
+
+-- 极速连发循环 / Rapid Fire Loop
+local function startFiring()
+    if firingTask then return end -- 防止重复启动 / Prevent duplicate loops
+    
+    firingTask = task.spawn(function()
+        while isLeftMouseDown do
+            fireProjectile()
+            RunService.Heartbeat:Wait() -- 随帧率极速发包 / Spam every frame
+        end
+        firingTask = nil
+    end)
+end
+
+-- 监听鼠标左键按下 / Listen for Left Click Down
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    -- gameProcessed 可以防止你在聊天框打字或点系统菜单时误触
+    if gameProcessed then return end 
+    
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isLeftMouseDown = true
+        startFiring()
+    end
+end)
+
+-- 监听鼠标左键松开 / Listen for Left Click Release
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isLeftMouseDown = false
+    end
+end)
+
+print("Hold Left-Click Auto-Fire Loaded!")
