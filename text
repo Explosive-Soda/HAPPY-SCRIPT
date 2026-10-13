@@ -1,5 +1,5 @@
 -- ==============================================================================
--- Universal Hub [Optimized Custom Native UI - Dead Center Fine-Tuned Engine]
+-- Universal Hub [Optimized Custom Native UI - Clean Final Engine]
 -- ==============================================================================
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
@@ -34,15 +34,11 @@ local FovColor = Color3.fromRGB(255, 255, 255)
 local TargetedFovColor = Color3.fromRGB(255, 0, 0)
 
 local ESPEnabled = false
-local BoxESPEnabled = false
 local ESPTeamCheck = false
 local ESPRenderDistance = 1000
-local BoxESPThickness = 1
 local ESPFillColor = Color3.fromRGB(255, 255, 255)
-local BoxESPColor = Color3.fromRGB(255, 255, 255)
 
 local ESPHighlights = {}
-local BoxESPDrawings = {}
 
 local CurrentTarget = nil
 local CurrentTargetPart = nil
@@ -93,7 +89,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -20, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "Universal Hub [Dead Center Engine]"
+TitleLabel.Text = "Universal Hub [Clean Final Engine]"
 TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
 TitleLabel.TextSize = 14
 TitleLabel.Font = Enum.Font.GothamBold
@@ -446,7 +442,6 @@ fovGui.Name = "FOVCircle"
 fovGui.BackgroundTransparency = 1
 fovGui.AnchorPoint = Vector2.new(0.5, 0.5)
 
--- Added precise negative Y offset (-math.floor(inset.Y / 2)) to counteract Topbar offset perfectly
 local inset = GuiService:GetGuiInset()
 fovGui.Position = UDim2.new(0.5, 0, 0.5, -math.floor(inset.Y / 2))
 fovGui.Size = UDim2.new(0, AimFov * 2, 0, AimFov * 2)
@@ -592,53 +587,18 @@ end)
 Mouse.Button2Down:Connect(function() if AimbotEnabled then Aiming = true end end)
 Mouse.Button2Up:Connect(function() if AimbotEnabled then Aiming = false end end)
 
--- [[ Core Logic: ESP ]] --
+-- [[ Core Logic: Highlight ESP ]] --
 local function cleanupPlayerESP(player)
     if ESPHighlights[player] then
         ESPHighlights[player]:Destroy()
         ESPHighlights[player] = nil
     end
-    if BoxESPDrawings[player] then
-        for _, line in pairs(BoxESPDrawings[player]) do
-            line:Remove()
-        end
-        BoxESPDrawings[player] = nil
-    end
 end
 
 Players.PlayerRemoving:Connect(cleanupPlayerESP)
 
-local function getCharacterCoreBounds(char)
-    local coreParts = {"Head", "UpperTorso", "LowerTorso", "Torso", "HumanoidRootPart", "Left Leg", "Right Leg", "Left Arm", "Right Arm", "LeftLowerArm", "RightLowerArm", "LeftUpperArm", "RightUpperArm", "LeftLowerLeg", "RightLowerLeg", "LeftUpperLeg", "RightUpperLeg"}
-    local minX, minY, minZ = math.huge, math.huge, math.huge
-    local maxX, maxY, maxZ = -math.huge, -math.huge, -math.huge
-    local valid = false
-
-    for _, name in ipairs(coreParts) do
-        local part = char:FindFirstChild(name)
-        if part and part:IsA("BasePart") then
-            valid = true
-            local p = part.Position
-            local s = part.Size
-            minX = math.min(minX, p.X - s.X/2)
-            minY = math.min(minY, p.Y - s.Y/2)
-            minZ = math.min(minZ, p.Z - s.Z/2)
-            maxX = math.max(maxX, p.X + s.X/2)
-            maxY = math.max(maxY, p.Y + s.Y/2)
-            maxZ = math.max(maxZ, p.Z + s.Z/2)
-        end
-    end
-
-    if not valid then return nil, nil end
-
-    local topWorld = Vector3.new((minX + maxX) / 2, maxY + 0.1, (minZ + maxZ) / 2)
-    local botWorld = Vector3.new((minX + maxX) / 2, minY - 0.1, (minZ + maxZ) / 2)
-    return topWorld, botWorld
-end
-
 local function updateESP()
     local myHrp = Plr.Character and Plr.Character:FindFirstChild("HumanoidRootPart")
-    local curInset = GuiService:GetGuiInset()
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= Plr then
@@ -670,78 +630,18 @@ local function updateESP()
                     hl.Enabled = ESPEnabled
                     if hl.Parent ~= char then hl.Parent = char hl.Adornee = char end
                 end
-
-                if BoxESPEnabled and hrp then
-                    if not BoxESPDrawings[player] then
-                        local box = {
-                            Top = Drawing.new("Line"),
-                            Bottom = Drawing.new("Line"),
-                            Left = Drawing.new("Line"),
-                            Right = Drawing.new("Line")
-                        }
-                        for _, line in pairs(box) do 
-                            line.Thickness = BoxESPThickness 
-                            line.Color = BoxESPColor 
-                        end
-                        BoxESPDrawings[player] = box
-                    end
-                    
-                    local box = BoxESPDrawings[player]
-                    local topWorld, botWorld = getCharacterCoreBounds(char)
-                    
-                    if topWorld and botWorld then
-                        local topPos, topVis = Camera:WorldToViewportPoint(topWorld)
-                        local botPos, botVis = Camera:WorldToViewportPoint(botWorld)
-                        
-                        if topVis or botVis then
-                            local height = math.abs(botPos.Y - topPos.Y)
-                            local width = height * 0.6
-                            local centerX = (topPos.X + botPos.X) / 2
-                            local boxX = centerX - width / 2
-                            local boxY = math.min(topPos.Y, botPos.Y) + curInset.Y
-                            
-                            box.Top.From = Vector2.new(boxX, boxY)
-                            box.Top.To = Vector2.new(boxX + width, boxY)
-                            
-                            box.Bottom.From = Vector2.new(boxX, boxY + height)
-                            box.Bottom.To = Vector2.new(boxX + width, boxY + height)
-                            
-                            box.Left.From = Vector2.new(boxX, boxY)
-                            box.Left.To = Vector2.new(boxX, boxY + height)
-                            
-                            box.Right.From = Vector2.new(boxX + width, boxY)
-                            box.Right.To = Vector2.new(boxX + width, boxY + height)
-
-                            for _, line in pairs(box) do line.Visible = true end
-                        else
-                            for _, line in pairs(box) do line.Visible = false end
-                        end
-                    else
-                        for _, line in pairs(box) do line.Visible = false end
-                    end
-                else
-                    if BoxESPDrawings[player] then
-                        for _, line in pairs(BoxESPDrawings[player]) do line.Visible = false end
-                    end
-                end
             else
                 if ESPHighlights[player] then ESPHighlights[player].Enabled = false end
-                if BoxESPDrawings[player] then
-                    for _, line in pairs(BoxESPDrawings[player]) do line.Visible = false end
-                end
             end
         end
     end
 end
 
 RunService.RenderStepped:Connect(function()
-    if ESPEnabled or BoxESPEnabled then
+    if ESPEnabled then
         updateESP()
     else
         for _, hl in pairs(ESPHighlights) do hl.Enabled = false end
-        for _, box in pairs(BoxESPDrawings) do
-            for _, line in pairs(box) do line.Visible = false end
-        end
     end
 end)
 
@@ -783,17 +683,8 @@ end)
 
 -- 2. Visual / ESP Page
 addToggle(visualPage, "Highlight ESP", false, function(v) ESPEnabled = v end)
-addToggle(visualPage, "Box ESP", false, function(v) BoxESPEnabled = v end)
 addToggle(visualPage, "ESP Team Check", false, function(v) ESPTeamCheck = v end)
 addRGBPicker(visualPage, "ESP Fill Color", ESPFillColor, function(c) ESPFillColor = c end)
-addRGBPicker(visualPage, "Box ESP Color", BoxESPColor, function(c) 
-    BoxESPColor = c 
-    for _, box in pairs(BoxESPDrawings) do for _, line in pairs(box) do line.Color = c end end
-end)
-addTextBox(visualPage, "Box Thickness", 1, function(v)
-    BoxESPThickness = v
-    for _, box in pairs(BoxESPDrawings) do for _, line in pairs(box) do line.Thickness = v end end
-end)
 addTextBox(visualPage, "Render Distance", 1000, function(v) ESPRenderDistance = v end)
 
 -- 3. Config Page
@@ -801,13 +692,16 @@ local function saveConfig()
     local configData = {
         AimbotEnabled = AimbotEnabled,
         AimFov = AimFov,
+        AimingStrategy = AimingStrategy,
+        AimParts = AimParts,
+        Smoothing = Smoothing,
+        PredictionStrength = PredictionStrength,
         WallCheck = WallCheck,
         StickyAimEnabled = StickyAimEnabled,
         TeamCheck = TeamCheck,
         HealthCheck = HealthCheck,
         MinHealth = MinHealth,
         ESPEnabled = ESPEnabled,
-        BoxESPEnabled = BoxESPEnabled,
         ESPTeamCheck = ESPTeamCheck,
         ESPRenderDistance = ESPRenderDistance
     }
@@ -846,7 +740,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
--- Auto load config on startup
+-- Auto load config on startup (Fully synchronized with all variables)
 task.spawn(function()
     task.wait(1)
     if isfile and isfile(ConfigFileName) then
@@ -854,13 +748,16 @@ task.spawn(function()
         if success and decoded then
             AimbotEnabled = decoded.AimbotEnabled or AimbotEnabled
             AimFov = decoded.AimFov or AimFov
+            AimingStrategy = decoded.AimingStrategy or AimingStrategy
+            AimParts = decoded.AimParts or AimParts
+            Smoothing = decoded.Smoothing or Smoothing
+            PredictionStrength = decoded.PredictionStrength or PredictionStrength
             WallCheck = decoded.WallCheck ~= nil and decoded.WallCheck or WallCheck
             StickyAimEnabled = decoded.StickyAimEnabled or StickyAimEnabled
             TeamCheck = decoded.TeamCheck or TeamCheck
             HealthCheck = decoded.HealthCheck or HealthCheck
             MinHealth = decoded.MinHealth or MinHealth
             ESPEnabled = decoded.ESPEnabled or ESPEnabled
-            BoxESPEnabled = decoded.BoxESPEnabled or BoxESPEnabled
             ESPTeamCheck = decoded.ESPTeamCheck or ESPTeamCheck
             ESPRenderDistance = decoded.ESPRenderDistance or ESPRenderDistance
         end
