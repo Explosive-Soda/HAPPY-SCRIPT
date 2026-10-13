@@ -1,5 +1,5 @@
 -- ==============================================================================
--- Universal Hub [Optimized Custom Native UI - Absolute Final Fixed Version]
+-- Universal Hub [Optimized Custom Native UI - Dead Center Fine-Tuned Engine]
 -- ==============================================================================
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
@@ -93,7 +93,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -20, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "Universal Hub [Absolute Final Engine]"
+TitleLabel.Text = "Universal Hub [Dead Center Engine]"
 TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
 TitleLabel.TextSize = 14
 TitleLabel.Font = Enum.Font.GothamBold
@@ -440,14 +440,29 @@ local function addButton(parent, name, callback)
     return btn
 end
 
--- [[ Core Logic: Aimbot ]] --
-local fovCircle = Drawing.new("Circle")
-fovCircle.Thickness = 2
-fovCircle.Radius = AimFov
-fovCircle.NumSides = 64
-fovCircle.Filled = false
-fovCircle.Color = FovColor
-fovCircle.Visible = false
+-- [[ Core Logic: Aimbot & Precise Centered FOV ]] --
+local fovGui = Instance.new("Frame")
+fovGui.Name = "FOVCircle"
+fovGui.BackgroundTransparency = 1
+fovGui.AnchorPoint = Vector2.new(0.5, 0.5)
+
+-- Added precise negative Y offset (-math.floor(inset.Y / 2)) to counteract Topbar offset perfectly
+local inset = GuiService:GetGuiInset()
+fovGui.Position = UDim2.new(0.5, 0, 0.5, -math.floor(inset.Y / 2))
+fovGui.Size = UDim2.new(0, AimFov * 2, 0, AimFov * 2)
+fovGui.Visible = false
+fovGui.Parent = ScreenGui
+
+local fovCorner = Instance.new("UICorner", fovGui)
+fovCorner.CornerRadius = UDim.new(1, 0)
+
+local fovStroke = Instance.new("UIStroke", fovGui)
+fovStroke.Thickness = 2
+fovStroke.Color = FovColor
+
+local function getScreenCenter()
+    return Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+end
 
 local function checkTeam(player)
     if TeamCheck and player.Team == Plr.Team then return true end
@@ -471,7 +486,7 @@ end
 local function getClosestPart(character)
     local closestPart = nil
     local shortestDist = AimFov
-    local mouseLoc = UserInputService:GetMouseLocation()
+    local screenCenter = getScreenCenter()
 
     local validParts = {}
     for _, partName in ipairs(AimParts) do
@@ -482,7 +497,7 @@ local function getClosestPart(character)
     if #validParts == 0 then return nil end
     local targetPart = validParts[math.random(1, #validParts)]
     local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-    local dist = (Vector2.new(pos.X, pos.Y) - mouseLoc).Magnitude
+    local dist = (Vector2.new(pos.X, pos.Y) - screenCenter).Magnitude
 
     if dist < shortestDist and onScreen then
         return targetPart
@@ -494,7 +509,7 @@ local function getTarget()
     local nearestPlayer = nil
     local closestPart = nil
     local shortestDist = AimFov
-    local mouseLoc = UserInputService:GetMouseLocation()
+    local screenCenter = getScreenCenter()
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= Plr and player.Character and not checkTeam(player) then
@@ -503,7 +518,7 @@ local function getTarget()
                 local part = getClosestPart(player.Character)
                 if part then
                     local pos = Camera:WorldToViewportPoint(part.Position)
-                    local dist = (Vector2.new(pos.X, pos.Y) - mouseLoc).Magnitude
+                    local dist = (Vector2.new(pos.X, pos.Y) - screenCenter).Magnitude
                     if dist < shortestDist then
                         if not WallCheck or not checkWall(player.Character) then
                             shortestDist = dist
@@ -530,17 +545,16 @@ end
 
 RunService.RenderStepped:Connect(function()
     if AimbotEnabled then
-        local mouseLoc = UserInputService:GetMouseLocation()
-        fovCircle.Position = mouseLoc -- GetMouseLocation matches Drawing window coordinates perfectly
-        fovCircle.Visible = FovVisibility
+        fovGui.Visible = FovVisibility
 
         if Aiming and CurrentTarget then
-            fovCircle.Color = TargetedFovColor
+            fovStroke.Color = TargetedFovColor
         else
-            fovCircle.Color = FovColor
+            fovStroke.Color = FovColor
         end
 
         if Aiming then
+            local screenCenter = getScreenCenter()
             if StickyAimEnabled and CurrentTarget then
                 if not CurrentTarget.Character or not CurrentTarget.Character:FindFirstChild("Head") then
                     CurrentTarget = nil
@@ -558,7 +572,7 @@ RunService.RenderStepped:Connect(function()
                     local smoothFactor = math.clamp(Smoothing, 1, 100) / 100
                     if AimingStrategy == "Mouse" and mousemoverel then
                         local viewportPos = Camera:WorldToViewportPoint(predPos)
-                        local delta = Vector2.new(viewportPos.X - mouseLoc.X, viewportPos.Y - mouseLoc.Y)
+                        local delta = Vector2.new(viewportPos.X - screenCenter.X, viewportPos.Y - screenCenter.Y)
                         mousemoverel(delta.X * smoothFactor, delta.Y * smoothFactor)
                     else
                         local targetCF = CFrame.new(Camera.CFrame.Position, predPos)
@@ -571,14 +585,14 @@ RunService.RenderStepped:Connect(function()
             CurrentTargetPart = nil
         end
     else
-        fovCircle.Visible = false
+        fovGui.Visible = false
     end
 end)
 
 Mouse.Button2Down:Connect(function() if AimbotEnabled then Aiming = true end end)
 Mouse.Button2Up:Connect(function() if AimbotEnabled then Aiming = false end end)
 
--- [[ Core Logic: ESP (Fixed with GuiInset Correction) ]] --
+-- [[ Core Logic: ESP ]] --
 local function cleanupPlayerESP(player)
     if ESPHighlights[player] then
         ESPHighlights[player]:Destroy()
@@ -624,7 +638,7 @@ end
 
 local function updateESP()
     local myHrp = Plr.Character and Plr.Character:FindFirstChild("HumanoidRootPart")
-    local inset = GuiService:GetGuiInset() -- Get Topbar / GUI Inset offset (fixes vertical screen projection mismatch)
+    local curInset = GuiService:GetGuiInset()
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= Plr then
@@ -684,8 +698,7 @@ local function updateESP()
                             local width = height * 0.6
                             local centerX = (topPos.X + botPos.X) / 2
                             local boxX = centerX - width / 2
-                            -- Add inset.Y to correct the Drawing library offset caused by the Roblox Topbar!
-                            local boxY = math.min(topPos.Y, botPos.Y) + inset.Y
+                            local boxY = math.min(topPos.Y, botPos.Y) + curInset.Y
                             
                             box.Top.From = Vector2.new(boxX, boxY)
                             box.Top.To = Vector2.new(boxX + width, boxY)
@@ -735,7 +748,7 @@ end)
 -- [[ Populate Pages ]] --
 
 -- 1. Aimbot Page
-addToggle(aimbotPage, "Aimbot Enable", false, function(v) AimbotEnabled = v fovCircle.Visible = v and FovVisibility end)
+addToggle(aimbotPage, "Aimbot Enable", false, function(v) AimbotEnabled = v fovGui.Visible = v and FovVisibility end)
 
 addDropdown(aimbotPage, "Aim Part", {"Head", "HumanoidRootPart", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}, {"Head"}, function(selected)
     AimParts = selected
@@ -745,8 +758,11 @@ addDropdown(aimbotPage, "Aim Strategy", {"Camera", "Mouse"}, "Camera", function(
     AimingStrategy = selected
 end)
 
-addToggle(aimbotPage, "FOV Visibility", false, function(v) FovVisibility = v fovCircle.Visible = v and AimbotEnabled end)
-addTextBox(aimbotPage, "Aimbot FOV", AimFov, function(v) AimFov = v fovCircle.Radius = v end)
+addToggle(aimbotPage, "FOV Visibility", false, function(v) FovVisibility = v fovGui.Visible = v and AimbotEnabled end)
+addTextBox(aimbotPage, "Aimbot FOV", AimFov, function(v) 
+    AimFov = v 
+    fovGui.Size = UDim2.new(0, v * 2, 0, v * 2) 
+end)
 addTextBox(aimbotPage, "Smoothing (0-100)", 3, function(v) Smoothing = v end)
 addTextBox(aimbotPage, "Prediction Strength", 0.03, function(v) PredictionStrength = v end)
 addToggle(aimbotPage, "Wall Check", true, function(v) WallCheck = v end)
@@ -757,12 +773,12 @@ addTextBox(aimbotPage, "Min Health", 1, function(v) MinHealth = v end)
 
 addRGBPicker(aimbotPage, "Fov Color", FovColor, function(c) 
     FovColor = c 
-    if not (Aiming and CurrentTarget) then fovCircle.Color = c end
+    if not (Aiming and CurrentTarget) then fovStroke.Color = c end
 end)
 
 addRGBPicker(aimbotPage, "Targeted Fov Color", TargetedFovColor, function(c) 
     TargetedFovColor = c 
-    if Aiming and CurrentTarget then fovCircle.Color = c end
+    if Aiming and CurrentTarget then fovStroke.Color = c end
 end)
 
 -- 2. Visual / ESP Page
