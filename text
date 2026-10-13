@@ -1,5 +1,5 @@
 -- ==============================================================================
--- Universal Hub [Optimized Custom Native UI - Clean Final Engine]
+-- Universal Hub [Optimized Custom Native UI - Final Synchronized Engine]
 -- ==============================================================================
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
@@ -43,6 +43,27 @@ local ESPHighlights = {}
 local CurrentTarget = nil
 local CurrentTargetPart = nil
 local ConfigFileName = "universal_hub_config.json"
+
+-- [[ 提前在最前方加载 Config (Load Config on Startup before UI creation) ]] --
+if isfile and isfile(ConfigFileName) then
+    local success, decoded = pcall(function() return HttpService:JSONDecode(readfile(ConfigFileName)) end)
+    if success and decoded then
+        AimbotEnabled = decoded.AimbotEnabled or AimbotEnabled
+        AimFov = decoded.AimFov or AimFov
+        AimingStrategy = decoded.AimingStrategy or AimingStrategy
+        AimParts = decoded.AimParts or AimParts
+        Smoothing = decoded.Smoothing or Smoothing
+        PredictionStrength = decoded.PredictionStrength or PredictionStrength
+        WallCheck = decoded.WallCheck ~= nil and decoded.WallCheck or WallCheck
+        StickyAimEnabled = decoded.StickyAimEnabled or StickyAimEnabled
+        TeamCheck = decoded.TeamCheck or TeamCheck
+        HealthCheck = decoded.HealthCheck or HealthCheck
+        MinHealth = decoded.MinHealth or MinHealth
+        ESPEnabled = decoded.ESPEnabled or ESPEnabled
+        ESPTeamCheck = decoded.ESPTeamCheck or ESPTeamCheck
+        ESPRenderDistance = decoded.ESPRenderDistance or ESPRenderDistance
+    end
+end
 
 -- [[ GUI Construction ]] --
 local ScreenGui = Instance.new("ScreenGui")
@@ -89,7 +110,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -20, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "Universal Hub [Clean Final Engine]"
+TitleLabel.Text = "Universal Hub [Synchronized Final Engine]"
 TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
 TitleLabel.TextSize = 14
 TitleLabel.Font = Enum.Font.GothamBold
@@ -645,31 +666,31 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- [[ Populate Pages ]] --
+-- [[ Populate Pages (Using loaded variables as defaults) ]] --
 
 -- 1. Aimbot Page
-addToggle(aimbotPage, "Aimbot Enable", false, function(v) AimbotEnabled = v fovGui.Visible = v and FovVisibility end)
+addToggle(aimbotPage, "Aimbot Enable", AimbotEnabled, function(v) AimbotEnabled = v fovGui.Visible = v and FovVisibility end)
 
-addDropdown(aimbotPage, "Aim Part", {"Head", "HumanoidRootPart", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}, {"Head"}, function(selected)
+addDropdown(aimbotPage, "Aim Part", {"Head", "HumanoidRootPart", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}, AimParts, function(selected)
     AimParts = selected
 end)
 
-addDropdown(aimbotPage, "Aim Strategy", {"Camera", "Mouse"}, "Camera", function(selected)
+addDropdown(aimbotPage, "Aim Strategy", {"Camera", "Mouse"}, AimingStrategy, function(selected)
     AimingStrategy = selected
 end)
 
-addToggle(aimbotPage, "FOV Visibility", false, function(v) FovVisibility = v fovGui.Visible = v and AimbotEnabled end)
+addToggle(aimbotPage, "FOV Visibility", FovVisibility, function(v) FovVisibility = v fovGui.Visible = v and AimbotEnabled end)
 addTextBox(aimbotPage, "Aimbot FOV", AimFov, function(v) 
     AimFov = v 
     fovGui.Size = UDim2.new(0, v * 2, 0, v * 2) 
 end)
-addTextBox(aimbotPage, "Smoothing (0-100)", 3, function(v) Smoothing = v end)
-addTextBox(aimbotPage, "Prediction Strength", 0.03, function(v) PredictionStrength = v end)
-addToggle(aimbotPage, "Wall Check", true, function(v) WallCheck = v end)
-addToggle(aimbotPage, "Sticky Aim", false, function(v) StickyAimEnabled = v end)
-addToggle(aimbotPage, "Team Check", false, function(v) TeamCheck = v end)
-addToggle(aimbotPage, "Health Check", false, function(v) HealthCheck = v end)
-addTextBox(aimbotPage, "Min Health", 1, function(v) MinHealth = v end)
+addTextBox(aimbotPage, "Smoothing (0-100)", Smoothing, function(v) Smoothing = v end)
+addTextBox(aimbotPage, "Prediction Strength", PredictionStrength, function(v) PredictionStrength = v end)
+addToggle(aimbotPage, "Wall Check", WallCheck, function(v) WallCheck = v end)
+addToggle(aimbotPage, "Sticky Aim", StickyAimEnabled, function(v) StickyAimEnabled = v end)
+addToggle(aimbotPage, "Team Check", TeamCheck, function(v) TeamCheck = v end)
+addToggle(aimbotPage, "Health Check", HealthCheck, function(v) HealthCheck = v end)
+addTextBox(aimbotPage, "Min Health", MinHealth, function(v) MinHealth = v end)
 
 addRGBPicker(aimbotPage, "Fov Color", FovColor, function(c) 
     FovColor = c 
@@ -682,10 +703,10 @@ addRGBPicker(aimbotPage, "Targeted Fov Color", TargetedFovColor, function(c)
 end)
 
 -- 2. Visual / ESP Page
-addToggle(visualPage, "Highlight ESP", false, function(v) ESPEnabled = v end)
-addToggle(visualPage, "ESP Team Check", false, function(v) ESPTeamCheck = v end)
+addToggle(visualPage, "Highlight ESP", ESPEnabled, function(v) ESPEnabled = v end)
+addToggle(visualPage, "ESP Team Check", ESPTeamCheck, function(v) ESPTeamCheck = v end)
 addRGBPicker(visualPage, "ESP Fill Color", ESPFillColor, function(c) ESPFillColor = c end)
-addTextBox(visualPage, "Render Distance", 1000, function(v) ESPRenderDistance = v end)
+addTextBox(visualPage, "Render Distance", ESPRenderDistance, function(v) ESPRenderDistance = v end)
 
 -- 3. Config Page
 local function saveConfig()
@@ -737,29 +758,5 @@ end)
 UserInputService.InputBegan:Connect(function(input, gp)
     if input.KeyCode == ToggleKey then
         MainFrame.Visible = not MainFrame.Visible
-    end
-end)
-
--- Auto load config on startup (Fully synchronized with all variables)
-task.spawn(function()
-    task.wait(1)
-    if isfile and isfile(ConfigFileName) then
-        local success, decoded = pcall(function() return HttpService:JSONDecode(readfile(ConfigFileName)) end)
-        if success and decoded then
-            AimbotEnabled = decoded.AimbotEnabled or AimbotEnabled
-            AimFov = decoded.AimFov or AimFov
-            AimingStrategy = decoded.AimingStrategy or AimingStrategy
-            AimParts = decoded.AimParts or AimParts
-            Smoothing = decoded.Smoothing or Smoothing
-            PredictionStrength = decoded.PredictionStrength or PredictionStrength
-            WallCheck = decoded.WallCheck ~= nil and decoded.WallCheck or WallCheck
-            StickyAimEnabled = decoded.StickyAimEnabled or StickyAimEnabled
-            TeamCheck = decoded.TeamCheck or TeamCheck
-            HealthCheck = decoded.HealthCheck or HealthCheck
-            MinHealth = decoded.MinHealth or MinHealth
-            ESPEnabled = decoded.ESPEnabled or ESPEnabled
-            ESPTeamCheck = decoded.ESPTeamCheck or ESPTeamCheck
-            ESPRenderDistance = decoded.ESPRenderDistance or ESPRenderDistance
-        end
     end
 end)
