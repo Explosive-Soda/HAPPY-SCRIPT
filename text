@@ -1,482 +1,852 @@
---version02
-if game.CoreGui:FindFirstChild("UniversalESP") then game.CoreGui:FindFirstChild("UniversalESP"):Destroy() end
-
-local UserInputService = game:GetService("UserInputService")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+-- ==============================================================================
+-- Universal Hub [Optimized Custom Native UI - Absolute Final Fixed Version]
+-- ==============================================================================
+local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
 
-local espEnabled = false
-local teamCheck = false
-local color = Color3.new(1, 1, 1)
-local toggleKey = Enum.KeyCode.T  -- 默认快捷键为 T
-local hideKey = Enum.KeyCode.RightAlt  -- 默认快捷键为 RightAlt
-local function isAttackersAndDefendersEnemy(targetPlayer)
-    local attackersTeam = workspace:FindFirstChild("teams__") and workspace.teams__:FindFirstChild("attackers")
-    local defendersTeam = workspace:FindFirstChild("teams__") and workspace.teams__:FindFirstChild("defenders")
-    
-    if attackersTeam and defendersTeam then
-        local isTargetAttacker = attackersTeam:FindFirstChild(targetPlayer.Name) ~= nil
-        local isTargetDefender = defendersTeam:FindFirstChild(targetPlayer.Name) ~= nil
-        local isLocalAttacker = attackersTeam:FindFirstChild(LocalPlayer.Name) ~= nil
-        local isLocalDefender = defendersTeam:FindFirstChild(LocalPlayer.Name) ~= nil
-        
-        return (isTargetAttacker and isLocalDefender) or (isTargetDefender and isLocalAttacker)
+local Plr = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local Mouse = Plr:GetMouse()
+
+-- [[ Configuration & State Variables ]] --
+local ToggleKey = Enum.KeyCode.RightAlt
+local AimbotEnabled = false
+local FovVisibility = false
+local AimingStrategy = "Camera" -- "Camera" or "Mouse"
+local AimFov = 150
+local AimParts = {"Head"}
+local Aiming = false
+local PredictionStrength = 0.03
+local Smoothing = 3
+local WallCheck = true
+local StickyAimEnabled = false
+local TeamCheck = false
+local HealthCheck = false
+local MinHealth = 1
+
+local FovColor = Color3.fromRGB(255, 255, 255)
+local TargetedFovColor = Color3.fromRGB(255, 0, 0)
+
+local ESPEnabled = false
+local BoxESPEnabled = false
+local ESPTeamCheck = false
+local ESPRenderDistance = 1000
+local BoxESPThickness = 1
+local ESPFillColor = Color3.fromRGB(255, 255, 255)
+local BoxESPColor = Color3.fromRGB(255, 255, 255)
+
+local ESPHighlights = {}
+local BoxESPDrawings = {}
+
+local CurrentTarget = nil
+local CurrentTargetPart = nil
+local ConfigFileName = "universal_hub_config.json"
+
+-- [[ GUI Construction ]] --
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "UniversalHubCleanUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder = 2147483647
+
+local protectedParent = nil
+pcall(function()
+    if gethui then
+        protectedParent = gethui()
+    elseif syn and syn.protect_gui then
+        syn.protect_gui(ScreenGui)
+        protectedParent = CoreGui
     end
+end)
+ScreenGui.Parent = protectedParent or CoreGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 580, 0, 420)
+MainFrame.Position = UDim2.new(0.5, -290, 0.5, -210)
+MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Parent = ScreenGui
+
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(255, 255, 255)
+MainStroke.Thickness = 1
+MainStroke.Parent = MainFrame
+
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 35)
+TopBar.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
+
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 8)
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -20, 1, 0)
+TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "Universal Hub [Absolute Final Engine]"
+TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
+TitleLabel.TextSize = 14
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = TopBar
+
+local dragging, dragStart, startPos
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+local TabBar = Instance.new("Frame")
+TabBar.Size = UDim2.new(1, -20, 0, 32)
+TabBar.Position = UDim2.new(0, 10, 0, 42)
+TabBar.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+TabBar.BorderSizePixel = 0
+TabBar.Parent = MainFrame
+
+Instance.new("UICorner", TabBar).CornerRadius = UDim.new(0, 6)
+
+local TabListLayout = Instance.new("UIListLayout")
+TabListLayout.FillDirection = Enum.FillDirection.Horizontal
+TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabListLayout.Parent = TabBar
+
+local ContentContainer = Instance.new("Frame")
+ContentContainer.Size = UDim2.new(1, -20, 1, -85)
+ContentContainer.Position = UDim2.new(0, 10, 0, 82)
+ContentContainer.BackgroundTransparency = 1
+ContentContainer.Parent = MainFrame
+
+local pages = {}
+local tabButtons = {}
+
+local function createPage(name)
+    local scroll = Instance.new("ScrollingFrame")
+    scroll.Name = name .. "Page"
+    scroll.Size = UDim2.new(1, 0, 1, 0)
+    scroll.BackgroundTransparency = 1
+    scroll.CanvasSize = UDim2.new(0, 0, 0, 700)
+    scroll.ScrollBarThickness = 0
+    scroll.Visible = false
+    scroll.Parent = ContentContainer
+
+    local layout = Instance.new("UIListLayout")
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 6)
+    layout.Parent = scroll
+
+    pages[name] = scroll
+    return scroll
+end
+
+local aimbotPage = createPage("aimbot")
+local visualPage = createPage("visual")
+local configPage = createPage("config")
+local settingsPage = createPage("settings")
+
+local function switchPage(name)
+    for pName, page in pairs(pages) do
+        page.Visible = (pName == name)
+    end
+    for tName, btn in pairs(tabButtons) do
+        if tName == name then
+            btn.TextColor3 = Color3.fromRGB(0, 170, 255)
+            btn.Font = Enum.Font.GothamBold
+        else
+            btn.TextColor3 = Color3.fromRGB(180, 180, 180)
+            btn.Font = Enum.Font.GothamMedium
+        end
+    end
+end
+
+local function createTabButton(name)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.25, 0, 1, 0)
+    btn.BackgroundTransparency = 1
+    btn.Text = name:upper()
+    btn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    btn.TextSize = 13
+    btn.Font = Enum.Font.GothamMedium
+    btn.Parent = TabBar
+
+    btn.MouseButton1Click:Connect(function()
+        switchPage(name)
+    end)
+    tabButtons[name] = btn
+end
+
+createTabButton("aimbot")
+createTabButton("visual")
+createTabButton("config")
+createTabButton("settings")
+switchPage("aimbot")
+
+-- [[ UI Helper Components ]] --
+local function addToggle(parent, name, default, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 32)
+    frame.BackgroundTransparency = 1
+    frame.Parent = parent
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = "  " .. name
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.TextSize = 13
+    label.Font = Enum.Font.GothamMedium
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    local switchBg = Instance.new("TextButton")
+    switchBg.Size = UDim2.new(0, 44, 0, 22)
+    switchBg.Position = UDim2.new(1, -50, 0.5, -11)
+    switchBg.BackgroundColor3 = default and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(70, 70, 80)
+    switchBg.Text = ""
+    switchBg.AutoButtonColor = false
+    switchBg.Parent = frame
     
-    return true
+    Instance.new("UICorner", switchBg).CornerRadius = UDim.new(1, 0)
+
+    local knob = Instance.new("Frame")
+    knob.Size = UDim2.new(0, 18, 0, 18)
+    knob.Position = default and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
+    knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    knob.Parent = switchBg
+    
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+
+    local state = default
+    switchBg.MouseButton1Click:Connect(function()
+        state = not state
+        local targetPos = state and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
+        local targetColor = state and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(70, 70, 80)
+        
+        TweenService:Create(knob, TweenInfo.new(0.15), {Position = targetPos}):Play()
+        TweenService:Create(switchBg, TweenInfo.new(0.15), {BackgroundColor3 = targetColor}):Play()
+        pcall(callback, state)
+    end)
 end
 
-local listeningForToggleKey = false
-local listeningForHideKey = false
+local function addTextBox(parent, name, default, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 32)
+    frame.BackgroundTransparency = 1
+    frame.Parent = parent
 
--- 新增Box ESP变量
-local boxESPEnabled = false
-local boxColor = Color3.new(1, 1, 1)
-local boxThickness = 1
-local boxESPDrawings = {}
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.6, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = "  " .. name
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.TextSize = 13
+    label.Font = Enum.Font.GothamMedium
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
 
--- GUI 创建
-local gui = Instance.new("ScreenGui", game.CoreGui)
-gui.Name = "UniversalESP"
-gui.ResetOnSpawn = false
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0, 110, 0, 24)
+    box.Position = UDim2.new(1, -120, 0.5, -12)
+    box.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    box.TextColor3 = Color3.fromRGB(255, 255, 255)
+    box.TextSize = 13
+    box.Font = Enum.Font.Gotham
+    box.Text = tostring(default)
+    box.ClearTextOnFocus = false
+    box.Parent = frame
 
-local frame = Instance.new("Frame", gui)
-frame.Position = UDim2.new(0.5, -100, 0.5, -150)  -- 增加高度以容纳新控件
-frame.Size = UDim2.new(0, 200, 0, 250)  -- 增加高度
-frame.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-frame.BorderColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
+    local s = Instance.new("UIStroke")
+    s.Color = Color3.fromRGB(80, 80, 90)
+    s.Thickness = 1
+    s.Parent = box
 
-local function makeLabel(name, y)
-	local label = Instance.new("TextLabel", frame)
-	label.Text = name
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.BackgroundTransparency = 1
-	label.Position = UDim2.new(0, 10, 0, y)
-	label.Size = UDim2.new(0, 80, 0, 20)
-	label.Font = Enum.Font.SourceSans
-	label.TextSize = 14
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	return label
+    box.FocusLost:Connect(function()
+        local num = tonumber(box.Text)
+        if num then
+            pcall(callback, num)
+        else
+            box.Text = tostring(default)
+        end
+    end)
 end
 
-local function makeSwitch(y, stateCallback)
-	local button = Instance.new("TextButton", frame)
-	button.Position = UDim2.new(0, 140, 0, y)
-	button.Size = UDim2.new(0, 40, 0, 20)
-	button.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-	button.Text = ""
-	button.AutoButtonColor = false
-	button.BorderSizePixel = 0
-	button.TextTransparency = 1
-	button.ClipsDescendants = true
-	local knob = Instance.new("Frame", button)
-	knob.Size = UDim2.new(0, 18, 0, 18)
-	knob.Position = UDim2.new(0, 2, 0, 1)
-	knob.BackgroundColor3 = Color3.new(1, 1, 1)
-	knob.BorderSizePixel = 0
-	knob.Name = "Knob"
-	knob.BackgroundTransparency = 0
-	knob.ZIndex = 2
-	knob:TweenSizeAndPosition(UDim2.new(0, 18, 0, 18), UDim2.new(0, 2, 0, 1), "Out", "Sine", 0)
+local function addRGBPicker(parent, name, defaultColor, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 32)
+    frame.BackgroundTransparency = 1
+    frame.Parent = parent
 
-	local state = true
-	local function updateState()
-		if state then
-			button.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-			knob:TweenPosition(UDim2.new(0, 20, 0, 1), "Out", "Sine", 0.2)
-		else
-			button.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-			knob:TweenPosition(UDim2.new(0, 2, 0, 1), "Out", "Sine", 0.2)
-		end
-		stateCallback(state)
-	end
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.5, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = "  " .. name
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.TextSize = 13
+    label.Font = Enum.Font.GothamMedium
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
 
-	button.MouseButton1Click:Connect(function()
-		state = not state
-		updateState()
-	end)
+    local function createBox(xOffset, val)
+        local box = Instance.new("TextBox")
+        box.Size = UDim2.new(0, 35, 0, 24)
+        box.Position = UDim2.new(1, xOffset, 0.5, -12)
+        box.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+        box.TextColor3 = Color3.fromRGB(255, 255, 255)
+        box.TextSize = 12
+        box.Text = tostring(math.clamp(math.floor(val), 0, 255))
+        box.Parent = frame
+        Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
+        return box
+    end
 
-	state = false
-	updateState()
+    local rBox = createBox(-125, defaultColor.R * 255)
+    local gBox = createBox(-85, defaultColor.G * 255)
+    local bBox = createBox(-45, defaultColor.B * 255)
+
+    local function updateColor()
+        local r = math.clamp(tonumber(rBox.Text) or 255, 0, 255)
+        local g = math.clamp(tonumber(gBox.Text) or 255, 0, 255)
+        local b = math.clamp(tonumber(bBox.Text) or 255, 0, 255)
+        
+        rBox.Text = tostring(r)
+        gBox.Text = tostring(g)
+        bBox.Text = tostring(b)
+
+        local col = Color3.fromRGB(r, g, b)
+        pcall(callback, col)
+    end
+
+    rBox.FocusLost:Connect(updateColor)
+    gBox.FocusLost:Connect(updateColor)
+    bBox.FocusLost:Connect(updateColor)
 end
 
-local function makeRGB(y, isBoxColor)
-	local boxes = {}
-	for i, colorName in ipairs({"R", "G", "B"}) do
-		local box = Instance.new("TextBox", frame)
-		box.Position = UDim2.new(0, 90 + (i - 1) * 30, 0, y)
-		box.Size = UDim2.new(0, 28, 0, 20)
-		box.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		box.BorderColor3 = Color3.new(1, 1, 1)
-		box.Text = "255"
-		box.Font = Enum.Font.SourceSans
-		box.TextSize = 14
-		box.TextColor3 = Color3.new(0, 0, 0)
-		box.ClearTextOnFocus = true
-		box.FocusLost:Connect(function()
-			local r = tonumber(boxes[1].Text) or 255
-			local g = tonumber(boxes[2].Text) or 255
-			local b = tonumber(boxes[3].Text) or 255
-			if isBoxColor then
-				boxColor = Color3.fromRGB(r, g, b)
-				-- 更新所有现有的Box颜色
-				for _, boxDrawing in pairs(boxESPDrawings) do
-					for _, line in pairs(boxDrawing) do
-						if line then
-							line.Color = boxColor
-						end
-					end
-				end
-			else
-				color = Color3.fromRGB(r, g, b)
-			end
-		end)
-		table.insert(boxes, box)
-	end
+local function addDropdown(parent, name, options, defaultSelected, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 34)
+    frame.BackgroundTransparency = 1
+    frame.ClipsDescendants = true
+    frame.Parent = parent
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 34)
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    btn.TextColor3 = Color3.fromRGB(240, 240, 240)
+    btn.TextSize = 13
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = name .. ": " .. (type(defaultSelected) == "table" and table.concat(defaultSelected, ", ") or tostring(defaultSelected))
+    btn.Parent = frame
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+
+    local dropdownList = Instance.new("Frame")
+    dropdownList.Size = UDim2.new(1, 0, 0, #options * 28)
+    dropdownList.Position = UDim2.new(0, 0, 0, 36)
+    dropdownList.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    dropdownList.BorderSizePixel = 0
+    dropdownList.Visible = false
+    dropdownList.Parent = frame
+    Instance.new("UICorner", dropdownList).CornerRadius = UDim.new(0, 6)
+
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    listLayout.Parent = dropdownList
+
+    local isOpen = false
+    btn.MouseButton1Click:Connect(function()
+        isOpen = not isOpen
+        dropdownList.Visible = isOpen
+        frame.Size = isOpen and UDim2.new(1, 0, 0, 38 + #options * 28) or UDim2.new(1, 0, 0, 34)
+    end)
+
+    local selected = type(defaultSelected) == "table" and defaultSelected or {defaultSelected}
+    local optionButtons = {}
+
+    for _, opt in ipairs(options) do
+        local optBtn = Instance.new("TextButton")
+        optBtn.Size = UDim2.new(1, 0, 0, 28)
+        optBtn.BackgroundTransparency = 1
+        optBtn.TextColor3 = table.find(selected, opt) and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(200, 200, 200)
+        optBtn.TextSize = 12
+        optBtn.Font = Enum.Font.GothamMedium
+        optBtn.Text = opt
+        optBtn.Parent = dropdownList
+        optionButtons[opt] = optBtn
+
+        optBtn.MouseButton1Click:Connect(function()
+            if type(defaultSelected) == "table" then
+                local idx = table.find(selected, opt)
+                if idx then
+                    if #selected > 1 then table.remove(selected, idx) end
+                else
+                    table.insert(selected, opt)
+                end
+                for _, o in ipairs(options) do
+                    optionButtons[o].TextColor3 = table.find(selected, o) and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(200, 200, 200)
+                end
+                btn.Text = name .. ": " .. table.concat(selected, ", ")
+                pcall(callback, selected)
+            else
+                selected = {opt}
+                for _, o in ipairs(options) do
+                    optionButtons[o].TextColor3 = (o == opt) and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(200, 200, 200)
+                end
+                btn.Text = name .. ": " .. opt
+                dropdownList.Visible = false
+                isOpen = false
+                frame.Size = UDim2.new(1, 0, 0, 34)
+                pcall(callback, opt)
+            end
+        end)
+    end
 end
 
-local function makeKeyButton(y, label, isToggle)
-	local labelObj = makeLabel(label, y)
-	local button = Instance.new("TextButton", frame)
-	button.Position = UDim2.new(0, 90, 0, y)
-	button.Size = UDim2.new(0, 100, 0, 20)
-	button.Text = "Press Any Key"
-	button.Font = Enum.Font.SourceSans
-	button.TextSize = 14
-	button.TextColor3 = Color3.new(1, 1, 1)
-	button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-	button.BorderColor3 = Color3.fromRGB(255, 255, 255)
+local function addButton(parent, name, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 34)
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    btn.TextColor3 = Color3.fromRGB(240, 240, 240)
+    btn.TextSize = 13
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = name
+    btn.Parent = parent
 
-	button.MouseButton1Click:Connect(function()
-		button.Text = "Waiting..."
-		local conn
-		conn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-			if not gameProcessed then
-				if input.UserInputType == Enum.UserInputType.Keyboard then
-					local key = input.KeyCode
-					if isToggle then
-						toggleKey = key
-					else
-						hideKey = key
-					end
-					button.Text = key.Name
-					conn:Disconnect()
-				end
-			end
-		end)
-	end)
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    btn.MouseButton1Click:Connect(function() pcall(callback) end)
+    return btn
 end
 
--- 创建组件
-makeLabel("ESP", 10)
-makeSwitch(10, function(val) espEnabled = val end)
+-- [[ Core Logic: Aimbot ]] --
+local fovCircle = Drawing.new("Circle")
+fovCircle.Thickness = 2
+fovCircle.Radius = AimFov
+fovCircle.NumSides = 64
+fovCircle.Filled = false
+fovCircle.Color = FovColor
+fovCircle.Visible = false
 
-makeLabel("BOX ESP", 40)  -- 新增Box ESP开关
-makeSwitch(40, function(val) boxESPEnabled = val end)
-
-makeLabel("TEAMCHECK", 70)
-makeSwitch(70, function(val) teamCheck = val end)
-
-makeLabel("ESP COLOUR", 100)
-makeRGB(100, false)  -- ESP颜色
-
-makeLabel("BOX COLOUR", 130)  -- 新增Box颜色
-makeRGB(130, true)  -- Box颜色
-
--- 新增Box厚度滑块
-makeLabel("BOX THICK", 160)
-local thicknessBox = Instance.new("TextBox", frame)
-thicknessBox.Position = UDim2.new(0, 90, 0, 160)
-thicknessBox.Size = UDim2.new(0, 40, 0, 20)
-thicknessBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-thicknessBox.BorderColor3 = Color3.new(1, 1, 1)
-thicknessBox.Text = "1"
-thicknessBox.Font = Enum.Font.SourceSans
-thicknessBox.TextSize = 14
-thicknessBox.TextColor3 = Color3.new(0, 0, 0)
-thicknessBox.ClearTextOnFocus = true
-thicknessBox.FocusLost:Connect(function()
-	local thickness = tonumber(thicknessBox.Text) or 1
-	boxThickness = math.clamp(thickness, 1, 5)
-	thicknessBox.Text = tostring(boxThickness)
-	-- 更新所有现有的Box厚度
-	if boxESPEnabled then
-		for _, boxDrawing in pairs(boxESPDrawings) do
-			for _, line in pairs(boxDrawing) do
-				if line then
-					line.Thickness = boxThickness
-				end
-			end
-		end
-	end
-end)
-
-makeKeyButton(190, "TOGGLE KEY", true)
-makeKeyButton(220, "HIDE KEY", false)
-
--- Box ESP功能
-local function updateBoxESP()
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") then
-			local char = player.Character
-			local alive = char.Humanoid.Health > 0
-			local isEnemy = not teamCheck or isAttackersAndDefendersEnemy(player)
-			if alive and isEnemy then
-				if boxESPEnabled then
-					local humanoidRootPart = char:FindFirstChild("HumanoidRootPart")
-					if humanoidRootPart then
-						if not boxESPDrawings[player] then
-							-- 创建Box ESP绘图
-							local box = {
-								Top = Drawing.new("Line"),
-								Bottom = Drawing.new("Line"),
-								Left = Drawing.new("Line"),
-								Right = Drawing.new("Line")
-							}
-							
-							-- 设置所有线的属性
-							for _, line in pairs(box) do
-								line.Thickness = boxThickness
-								line.Color = boxColor
-								line.Visible = true
-							end
-							
-							boxESPDrawings[player] = box
-						end
-						
-						-- 更新Box位置
-						local box = boxESPDrawings[player]
-						local head = char:FindFirstChild("Head")
-						local torso = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
-						
-						if head and torso then
-							local headPos, headVisible = workspace.CurrentCamera:WorldToViewportPoint(head.Position)
-							local torsoPos, torsoVisible = workspace.CurrentCamera:WorldToViewportPoint(torso.Position)
-							
-							if headVisible and torsoVisible then
-								local height = math.abs(headPos.Y - torsoPos.Y) * 2.5
-								local width = height * 0.6
-								
-								local topY = headPos.Y - height * 0.3
-								local bottomY = torsoPos.Y + height * 0.2
-								local leftX = torsoPos.X - width / 2
-								local rightX = torsoPos.X + width / 2
-								
-								-- 更新Box线条位置
-								if box.Top then
-									box.Top.From = Vector2.new(leftX, topY)
-									box.Top.To = Vector2.new(rightX, topY)
-								end
-								
-								if box.Bottom then
-									box.Bottom.From = Vector2.new(leftX, bottomY)
-									box.Bottom.To = Vector2.new(rightX, bottomY)
-								end
-								
-								if box.Left then
-									box.Left.From = Vector2.new(leftX, topY)
-									box.Left.To = Vector2.new(leftX, bottomY)
-								end
-								
-								if box.Right then
-									box.Right.From = Vector2.new(rightX, topY)
-									box.Right.To = Vector2.new(rightX, bottomY)
-								end
-								
-								-- 设置所有线可见
-								for _, line in pairs(box) do
-									if line then
-										line.Visible = true
-									end
-								end
-							else
-								-- 如果角色不在视野内，隐藏Box
-								for _, line in pairs(box) do
-									if line then
-										line.Visible = false
-									end
-								end
-							end
-						end
-					end
-				else
-					-- 如果Box ESP禁用，隐藏该玩家的Box
-					if boxESPDrawings[player] then
-						for _, line in pairs(boxESPDrawings[player]) do
-							if line then
-								line.Visible = false
-							end
-						end
-					end
-				end
-			else
-				-- 如果角色死亡或不符合条件，隐藏Box
-				if boxESPDrawings[player] then
-					for _, line in pairs(boxESPDrawings[player]) do
-						if line then
-							line.Visible = false
-						end
-					end
-				end
-			end
-		else
-			-- 玩家不存在或没有角色，清理Box
-			if boxESPDrawings[player] then
-				for _, line in pairs(boxESPDrawings[player]) do
-					if line then
-						line:Remove()
-					end
-				end
-				boxESPDrawings[player] = nil
-			end
-		end
-	end
+local function checkTeam(player)
+    if TeamCheck and player.Team == Plr.Team then return true end
+    return false
 end
 
--- 玩家连接/断开处理
-local function onPlayerAdded(player)
-	player.CharacterAdded:Connect(function(character)
-		-- 不需要在这里做特殊处理，会在渲染循环中处理
-	end)
-	
-	player.CharacterRemoving:Connect(function()
-		-- 清理Box ESP
-		if boxESPDrawings[player] then
-			for _, line in pairs(boxESPDrawings[player]) do
-				if line then
-					line:Remove()
-				end
-			end
-			boxESPDrawings[player] = nil
-		end
-	end)
+local function checkWall(targetCharacter)
+    local targetHead = targetCharacter:FindFirstChild("Head")
+    if not targetHead then return true end
+
+    local origin = Camera.CFrame.Position
+    local direction = (targetHead.Position - origin).unit * (targetHead.Position - origin).magnitude
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {Plr.Character, targetCharacter}
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+    local result = Workspace:Raycast(origin, direction, raycastParams)
+    return result and result.Instance ~= nil
 end
 
-local function onPlayerRemoving(player)
-	-- 清理Box ESP
-	if boxESPDrawings[player] then
-		for _, line in pairs(boxESPDrawings[player]) do
-			if line then
-				line:Remove()
-			end
-		end
-		boxESPDrawings[player] = nil
-	end
+local function getClosestPart(character)
+    local closestPart = nil
+    local shortestDist = AimFov
+    local mouseLoc = UserInputService:GetMouseLocation()
+
+    local validParts = {}
+    for _, partName in ipairs(AimParts) do
+        local part = character:FindFirstChild(partName)
+        if part then table.insert(validParts, part) end
+    end
+
+    if #validParts == 0 then return nil end
+    local targetPart = validParts[math.random(1, #validParts)]
+    local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+    local dist = (Vector2.new(pos.X, pos.Y) - mouseLoc).Magnitude
+
+    if dist < shortestDist and onScreen then
+        return targetPart
+    end
+    return nil
 end
 
--- 初始化现有玩家
-for _, player in ipairs(Players:GetPlayers()) do
-	onPlayerAdded(player)
+local function getTarget()
+    local nearestPlayer = nil
+    local closestPart = nil
+    local shortestDist = AimFov
+    local mouseLoc = UserInputService:GetMouseLocation()
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Plr and player.Character and not checkTeam(player) then
+            local hum = player.Character:FindFirstChild("Humanoid")
+            if hum and (hum.Health >= MinHealth or not HealthCheck) then
+                local part = getClosestPart(player.Character)
+                if part then
+                    local pos = Camera:WorldToViewportPoint(part.Position)
+                    local dist = (Vector2.new(pos.X, pos.Y) - mouseLoc).Magnitude
+                    if dist < shortestDist then
+                        if not WallCheck or not checkWall(player.Character) then
+                            shortestDist = dist
+                            nearestPlayer = player
+                            closestPart = part
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return nearestPlayer, closestPart
 end
 
-Players.PlayerAdded:Connect(onPlayerAdded)
-Players.PlayerRemoving:Connect(onPlayerRemoving)
+local function predict(player, part)
+    if player and player.Character and part then
+        local root = player.Character:FindFirstChild("HumanoidRootPart")
+        if root then
+            return part.Position + (root.Velocity * PredictionStrength)
+        end
+    end
+    return nil
+end
 
--- GUI 显隐控制
-UserInputService.InputBegan:Connect(function(input, gp)
-	if not gp and input.KeyCode == hideKey then
-		frame.Visible = not frame.Visible
-	end
-end)
-
--- 快捷键切换 ESP
-UserInputService.InputBegan:Connect(function(input, gp)
-	if not gp and input.KeyCode == toggleKey then
-		espEnabled = not espEnabled
-	end
-end)
-
--- 允许拖动 GUI
-local dragging = false
-local dragStart = nil
-local startPos = nil
-
-frame.InputBegan:Connect(function(input, gp)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = true
-		dragStart = input.Position
-		startPos = frame.Position
-	end
-end)
-
-frame.InputChanged:Connect(function(input)
-	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-		local delta = input.Position - dragStart
-		frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-	end
-end)
-
-frame.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = false
-	end
-end)
-
--- 实时刷新 ESP 并添加黑色轮廓
 RunService.RenderStepped:Connect(function()
-	-- 更新Highlight ESP
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") then
-			local char = player.Character
-			local alive = char.Humanoid.Health > 0
-			local isEnemy = not teamCheck or isAttackersAndDefendersEnemy(player)
+    if AimbotEnabled then
+        local mouseLoc = UserInputService:GetMouseLocation()
+        fovCircle.Position = mouseLoc -- GetMouseLocation matches Drawing window coordinates perfectly
+        fovCircle.Visible = FovVisibility
 
-			if alive and isEnemy then
-				-- 确保角色有一个 Highlight 组件
-				if not char:FindFirstChild("Highlight") then
-					local hl = Instance.new("Highlight", char)
-					hl.FillColor = color
-					hl.OutlineTransparency = 0.5  -- 设置轮廓的透明度
-					hl.OutlineColor = Color3.new(0, 0, 0)  -- 设置轮廓颜色为黑色
-					hl.Adornee = char
-				else
-					local hl = char:FindFirstChild("Highlight")
-					hl.FillColor = color
-					hl.OutlineTransparency = 0.5  -- 保持轮廓透明度
-					hl.OutlineColor = Color3.new(0, 0, 0)  -- 黑色轮廓
-					hl.Enabled = espEnabled
-				end
-			else
-				-- 如果角色死亡或不符合条件，关闭 Highlight
-				if char:FindFirstChild("Highlight") then
-					char.Highlight.Enabled = false
-				end
-			end
-		end
-	end
-	
-	-- 更新Box ESP
-	if boxESPEnabled then
-		updateBoxESP()
-	else
-		-- 关闭所有Box ESP
-		for _, box in pairs(boxESPDrawings) do
-			for _, line in pairs(box) do
-				if line then
-					line.Visible = false
-				end
-			end
-		end
-	end
+        if Aiming and CurrentTarget then
+            fovCircle.Color = TargetedFovColor
+        else
+            fovCircle.Color = FovColor
+        end
+
+        if Aiming then
+            if StickyAimEnabled and CurrentTarget then
+                if not CurrentTarget.Character or not CurrentTarget.Character:FindFirstChild("Head") then
+                    CurrentTarget = nil
+                    CurrentTargetPart = nil
+                end
+            end
+
+            if not StickyAimEnabled or not CurrentTarget then
+                CurrentTarget, CurrentTargetPart = getTarget()
+            end
+
+            if CurrentTarget and CurrentTargetPart then
+                local predPos = predict(CurrentTarget, CurrentTargetPart)
+                if predPos then
+                    local smoothFactor = math.clamp(Smoothing, 1, 100) / 100
+                    if AimingStrategy == "Mouse" and mousemoverel then
+                        local viewportPos = Camera:WorldToViewportPoint(predPos)
+                        local delta = Vector2.new(viewportPos.X - mouseLoc.X, viewportPos.Y - mouseLoc.Y)
+                        mousemoverel(delta.X * smoothFactor, delta.Y * smoothFactor)
+                    else
+                        local targetCF = CFrame.new(Camera.CFrame.Position, predPos)
+                        Camera.CFrame = Camera.CFrame:Lerp(targetCF, smoothFactor)
+                    end
+                end
+            end
+        else
+            CurrentTarget = nil
+            CurrentTargetPart = nil
+        end
+    else
+        fovCircle.Visible = false
+    end
 end)
 
--- 清理函数
-local function cleanup()
-	-- 清理Box ESP
-	for _, box in pairs(boxESPDrawings) do
-		for _, line in pairs(box) do
-			if line then
-				line:Remove()
-			end
-		end
-	end
-	boxESPDrawings = {}
+Mouse.Button2Down:Connect(function() if AimbotEnabled then Aiming = true end end)
+Mouse.Button2Up:Connect(function() if AimbotEnabled then Aiming = false end end)
+
+-- [[ Core Logic: ESP (Fixed with GuiInset Correction) ]] --
+local function cleanupPlayerESP(player)
+    if ESPHighlights[player] then
+        ESPHighlights[player]:Destroy()
+        ESPHighlights[player] = nil
+    end
+    if BoxESPDrawings[player] then
+        for _, line in pairs(BoxESPDrawings[player]) do
+            line:Remove()
+        end
+        BoxESPDrawings[player] = nil
+    end
 end
 
--- 监听玩家离开事件
-LocalPlayer:GetPropertyChangedSignal("Parent"):Connect(function()
-	if not LocalPlayer.Parent then
-		cleanup()
-	end
+Players.PlayerRemoving:Connect(cleanupPlayerESP)
+
+local function getCharacterCoreBounds(char)
+    local coreParts = {"Head", "UpperTorso", "LowerTorso", "Torso", "HumanoidRootPart", "Left Leg", "Right Leg", "Left Arm", "Right Arm", "LeftLowerArm", "RightLowerArm", "LeftUpperArm", "RightUpperArm", "LeftLowerLeg", "RightLowerLeg", "LeftUpperLeg", "RightUpperLeg"}
+    local minX, minY, minZ = math.huge, math.huge, math.huge
+    local maxX, maxY, maxZ = -math.huge, -math.huge, -math.huge
+    local valid = false
+
+    for _, name in ipairs(coreParts) do
+        local part = char:FindFirstChild(name)
+        if part and part:IsA("BasePart") then
+            valid = true
+            local p = part.Position
+            local s = part.Size
+            minX = math.min(minX, p.X - s.X/2)
+            minY = math.min(minY, p.Y - s.Y/2)
+            minZ = math.min(minZ, p.Z - s.Z/2)
+            maxX = math.max(maxX, p.X + s.X/2)
+            maxY = math.max(maxY, p.Y + s.Y/2)
+            maxZ = math.max(maxZ, p.Z + s.Z/2)
+        end
+    end
+
+    if not valid then return nil, nil end
+
+    local topWorld = Vector3.new((minX + maxX) / 2, maxY + 0.1, (minZ + maxZ) / 2)
+    local botWorld = Vector3.new((minX + maxX) / 2, minY - 0.1, (minZ + maxZ) / 2)
+    return topWorld, botWorld
+end
+
+local function updateESP()
+    local myHrp = Plr.Character and Plr.Character:FindFirstChild("HumanoidRootPart")
+    local inset = GuiService:GetGuiInset() -- Get Topbar / GUI Inset offset (fixes vertical screen projection mismatch)
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Plr then
+            local char = player.Character
+            local hum = char and char:FindFirstChild("Humanoid")
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            local alive = hum and hum.Health > 0
+            local isEnemy = not ESPTeamCheck or player.Team ~= Plr.Team
+            local inDist = true
+
+            if myHrp and hrp then
+                inDist = (hrp.Position - myHrp.Position).Magnitude <= ESPRenderDistance
+            end
+
+            if char and alive and isEnemy and inDist then
+                if not ESPHighlights[player] then
+                    local hl = Instance.new("Highlight")
+                    hl.Parent = char
+                    hl.FillColor = ESPFillColor
+                    hl.FillTransparency = 0.5
+                    hl.OutlineColor = Color3.fromRGB(0, 0, 0)
+                    hl.OutlineTransparency = 0
+                    hl.Adornee = char
+                    hl.Enabled = ESPEnabled
+                    ESPHighlights[player] = hl
+                else
+                    local hl = ESPHighlights[player]
+                    hl.FillColor = ESPFillColor
+                    hl.Enabled = ESPEnabled
+                    if hl.Parent ~= char then hl.Parent = char hl.Adornee = char end
+                end
+
+                if BoxESPEnabled and hrp then
+                    if not BoxESPDrawings[player] then
+                        local box = {
+                            Top = Drawing.new("Line"),
+                            Bottom = Drawing.new("Line"),
+                            Left = Drawing.new("Line"),
+                            Right = Drawing.new("Line")
+                        }
+                        for _, line in pairs(box) do 
+                            line.Thickness = BoxESPThickness 
+                            line.Color = BoxESPColor 
+                        end
+                        BoxESPDrawings[player] = box
+                    end
+                    
+                    local box = BoxESPDrawings[player]
+                    local topWorld, botWorld = getCharacterCoreBounds(char)
+                    
+                    if topWorld and botWorld then
+                        local topPos, topVis = Camera:WorldToViewportPoint(topWorld)
+                        local botPos, botVis = Camera:WorldToViewportPoint(botWorld)
+                        
+                        if topVis or botVis then
+                            local height = math.abs(botPos.Y - topPos.Y)
+                            local width = height * 0.6
+                            local centerX = (topPos.X + botPos.X) / 2
+                            local boxX = centerX - width / 2
+                            -- Add inset.Y to correct the Drawing library offset caused by the Roblox Topbar!
+                            local boxY = math.min(topPos.Y, botPos.Y) + inset.Y
+                            
+                            box.Top.From = Vector2.new(boxX, boxY)
+                            box.Top.To = Vector2.new(boxX + width, boxY)
+                            
+                            box.Bottom.From = Vector2.new(boxX, boxY + height)
+                            box.Bottom.To = Vector2.new(boxX + width, boxY + height)
+                            
+                            box.Left.From = Vector2.new(boxX, boxY)
+                            box.Left.To = Vector2.new(boxX, boxY + height)
+                            
+                            box.Right.From = Vector2.new(boxX + width, boxY)
+                            box.Right.To = Vector2.new(boxX + width, boxY + height)
+
+                            for _, line in pairs(box) do line.Visible = true end
+                        else
+                            for _, line in pairs(box) do line.Visible = false end
+                        end
+                    else
+                        for _, line in pairs(box) do line.Visible = false end
+                    end
+                else
+                    if BoxESPDrawings[player] then
+                        for _, line in pairs(BoxESPDrawings[player]) do line.Visible = false end
+                    end
+                end
+            else
+                if ESPHighlights[player] then ESPHighlights[player].Enabled = false end
+                if BoxESPDrawings[player] then
+                    for _, line in pairs(BoxESPDrawings[player]) do line.Visible = false end
+                end
+            end
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if ESPEnabled or BoxESPEnabled then
+        updateESP()
+    else
+        for _, hl in pairs(ESPHighlights) do hl.Enabled = false end
+        for _, box in pairs(BoxESPDrawings) do
+            for _, line in pairs(box) do line.Visible = false end
+        end
+    end
+end)
+
+-- [[ Populate Pages ]] --
+
+-- 1. Aimbot Page
+addToggle(aimbotPage, "Aimbot Enable", false, function(v) AimbotEnabled = v fovCircle.Visible = v and FovVisibility end)
+
+addDropdown(aimbotPage, "Aim Part", {"Head", "HumanoidRootPart", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}, {"Head"}, function(selected)
+    AimParts = selected
+end)
+
+addDropdown(aimbotPage, "Aim Strategy", {"Camera", "Mouse"}, "Camera", function(selected)
+    AimingStrategy = selected
+end)
+
+addToggle(aimbotPage, "FOV Visibility", false, function(v) FovVisibility = v fovCircle.Visible = v and AimbotEnabled end)
+addTextBox(aimbotPage, "Aimbot FOV", AimFov, function(v) AimFov = v fovCircle.Radius = v end)
+addTextBox(aimbotPage, "Smoothing (0-100)", 3, function(v) Smoothing = v end)
+addTextBox(aimbotPage, "Prediction Strength", 0.03, function(v) PredictionStrength = v end)
+addToggle(aimbotPage, "Wall Check", true, function(v) WallCheck = v end)
+addToggle(aimbotPage, "Sticky Aim", false, function(v) StickyAimEnabled = v end)
+addToggle(aimbotPage, "Team Check", false, function(v) TeamCheck = v end)
+addToggle(aimbotPage, "Health Check", false, function(v) HealthCheck = v end)
+addTextBox(aimbotPage, "Min Health", 1, function(v) MinHealth = v end)
+
+addRGBPicker(aimbotPage, "Fov Color", FovColor, function(c) 
+    FovColor = c 
+    if not (Aiming and CurrentTarget) then fovCircle.Color = c end
+end)
+
+addRGBPicker(aimbotPage, "Targeted Fov Color", TargetedFovColor, function(c) 
+    TargetedFovColor = c 
+    if Aiming and CurrentTarget then fovCircle.Color = c end
+end)
+
+-- 2. Visual / ESP Page
+addToggle(visualPage, "Highlight ESP", false, function(v) ESPEnabled = v end)
+addToggle(visualPage, "Box ESP", false, function(v) BoxESPEnabled = v end)
+addToggle(visualPage, "ESP Team Check", false, function(v) ESPTeamCheck = v end)
+addRGBPicker(visualPage, "ESP Fill Color", ESPFillColor, function(c) ESPFillColor = c end)
+addRGBPicker(visualPage, "Box ESP Color", BoxESPColor, function(c) 
+    BoxESPColor = c 
+    for _, box in pairs(BoxESPDrawings) do for _, line in pairs(box) do line.Color = c end end
+end)
+addTextBox(visualPage, "Box Thickness", 1, function(v)
+    BoxESPThickness = v
+    for _, box in pairs(BoxESPDrawings) do for _, line in pairs(box) do line.Thickness = v end end
+end)
+addTextBox(visualPage, "Render Distance", 1000, function(v) ESPRenderDistance = v end)
+
+-- 3. Config Page
+local function saveConfig()
+    local configData = {
+        AimbotEnabled = AimbotEnabled,
+        AimFov = AimFov,
+        WallCheck = WallCheck,
+        StickyAimEnabled = StickyAimEnabled,
+        TeamCheck = TeamCheck,
+        HealthCheck = HealthCheck,
+        MinHealth = MinHealth,
+        ESPEnabled = ESPEnabled,
+        BoxESPEnabled = BoxESPEnabled,
+        ESPTeamCheck = ESPTeamCheck,
+        ESPRenderDistance = ESPRenderDistance
+    }
+    local success, encoded = pcall(function() return HttpService:JSONEncode(configData) end)
+    if success and writefile then
+        writefile(ConfigFileName, encoded)
+    end
+end
+
+local function resetConfig()
+    if isfile and isfile(ConfigFileName) then
+        if delfile then delfile(ConfigFileName) end
+    end
+end
+
+addButton(configPage, "💾 Save Configuration", saveConfig)
+addButton(configPage, "🗑️ Reset Configuration", resetConfig)
+
+-- 4. Settings Page
+local keybindBtn
+keybindBtn = addButton(settingsPage, "UI Toggle Key: RightAlt", function()
+    keybindBtn.Text = "Select a Key..."
+    local connection
+    connection = UserInputService.InputBegan:Connect(function(input, gp)
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            ToggleKey = input.KeyCode
+            keybindBtn.Text = "UI Toggle Key: " .. ToggleKey.Name
+            connection:Disconnect()
+        end
+    end)
+end)
+
+UserInputService.InputBegan:Connect(function(input, gp)
+    if input.KeyCode == ToggleKey then
+        MainFrame.Visible = not MainFrame.Visible
+    end
+end)
+
+-- Auto load config on startup
+task.spawn(function()
+    task.wait(1)
+    if isfile and isfile(ConfigFileName) then
+        local success, decoded = pcall(function() return HttpService:JSONDecode(readfile(ConfigFileName)) end)
+        if success and decoded then
+            AimbotEnabled = decoded.AimbotEnabled or AimbotEnabled
+            AimFov = decoded.AimFov or AimFov
+            WallCheck = decoded.WallCheck ~= nil and decoded.WallCheck or WallCheck
+            StickyAimEnabled = decoded.StickyAimEnabled or StickyAimEnabled
+            TeamCheck = decoded.TeamCheck or TeamCheck
+            HealthCheck = decoded.HealthCheck or HealthCheck
+            MinHealth = decoded.MinHealth or MinHealth
+            ESPEnabled = decoded.ESPEnabled or ESPEnabled
+            BoxESPEnabled = decoded.BoxESPEnabled or BoxESPEnabled
+            ESPTeamCheck = decoded.ESPTeamCheck or ESPTeamCheck
+            ESPRenderDistance = decoded.ESPRenderDistance or ESPRenderDistance
+        end
+    end
 end)
