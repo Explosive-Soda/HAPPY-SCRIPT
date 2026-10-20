@@ -1,0 +1,302 @@
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- Configuration / 设置 (默认状态)
+local boxEspEnabled = false
+local killerEspEnabled = false
+local lootEspEnabled = false
+local infiniteStaminaEnabled = false
+
+-- ==================== 1. Create GUI / 创建GUI ====================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CombinedESPGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = game.CoreGui
+
+-- Main Frame (调整高度以容纳当前功能)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 220, 0, 195)
+MainFrame.Position = UDim2.new(0.5, -110, 0.1, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+MainFrame.BorderColor3 = Color3.fromRGB(255, 255, 255)
+MainFrame.BorderSizePixel = 1
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+-- Title / 标题
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, 0, 0, 30)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "Combined ESP Panel"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 14
+TitleLabel.Font = Enum.Font.SourceSansBold
+TitleLabel.Parent = MainFrame
+
+-- 通用创建开关行的函数 / Helper function to create toggle rows
+local function createToggleRow(name, yPos, callback)
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0, 120, 0, 30)
+    Label.Position = UDim2.new(0, 10, 0, yPos)
+    Label.BackgroundTransparency = 1
+    Label.Text = name
+    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Label.TextSize = 14
+    Label.Font = Enum.Font.SourceSans
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = MainFrame
+
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(0, 60, 0, 24)
+    Button.Position = UDim2.new(0, 140, 0, yPos + 3)
+    Button.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    Button.BorderColor3 = Color3.fromRGB(255, 255, 255)
+    Button.Text = "OFF"
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.TextSize = 14
+    Button.Font = Enum.Font.SourceSansBold
+    Button.Parent = MainFrame
+
+    local state = false
+    Button.MouseButton1Click:Connect(function()
+        state = not state
+        if state then
+            Button.Text = "ON"
+            Button.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        else
+            Button.Text = "OFF"
+            Button.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+        end
+        callback(state)
+    end)
+end
+
+-- 创建所有功能的开关 / Create toggles for active features
+createToggleRow("Player Box ESP", 40, function(state)
+    boxEspEnabled = state
+end)
+
+createToggleRow("Killer ESP", 75, function(state)
+    killerEspEnabled = state
+end)
+
+createToggleRow("Loot ESP", 110, function(state)
+    lootEspEnabled = state
+end)
+
+createToggleRow("Infinite Stamina", 145, function(state)
+    infiniteStaminaEnabled = state
+end)
+
+-- 2. GUI Hide/Show Key (RightAlt) / 显示隐藏快捷键 (RightAlt)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.RightAlt then
+        MainFrame.Visible = not MainFrame.Visible
+    end
+end)
+
+
+-- ==================== 3. Player Box ESP 逻辑 ====================
+local espBoxes = {}
+
+local function createBox()
+    local box = Drawing.new("Square")
+    box.Visible = false
+    box.Color = Color3.fromRGB(255, 255, 255)
+    box.Thickness = 1.5
+    box.Filled = false
+    return box
+end
+
+RunService.RenderStepped:Connect(function()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            if not espBoxes[player] then
+                espBoxes[player] = createBox()
+            end
+
+            local box = espBoxes[player]
+            local character = player.Character
+            
+            if boxEspEnabled and character and character:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0 then
+                local rootPart = character.HumanoidRootPart
+                local vector, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
+
+                if onScreen then
+                    local size = (Camera:WorldToViewportPoint(rootPart.Position - Vector3.new(0, 3, 0)).Y - Camera:WorldToViewportPoint(rootPart.Position + Vector3.new(0, 3, 0)).Y)
+                    local boxSize = Vector2.new(math.abs(size) * 0.6, math.abs(size))
+                    local boxPosition = Vector2.new(vector.X - boxSize.X / 2, vector.Y - boxSize.Y / 2)
+
+                    box.Size = boxSize
+                    box.Position = boxPosition
+                    box.Visible = true
+                else
+                    box.Visible = false
+                end
+            else
+                box.Visible = false
+            end
+        end
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    if espBoxes[player] then
+        espBoxes[player]:Remove()
+        espBoxes[player] = nil
+    end
+end)
+
+
+-- ==================== 4. Killer ESP 逻辑 ====================
+local KILLER_HIGHLIGHT_NAME = "InfiniteHealthKillerESP"
+
+local function applyKillerESP(targetModel)
+    if not targetModel:FindFirstChild(KILLER_HIGHLIGHT_NAME) then
+        local highlight = Instance.new("Highlight")
+        highlight.Name = KILLER_HIGHLIGHT_NAME
+        highlight.Adornee = targetModel
+        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+        highlight.OutlineColor = Color3.fromRGB(0, 0, 0)
+        highlight.FillTransparency = 0.3
+        highlight.OutlineTransparency = 0
+        highlight.Parent = targetModel
+    end
+end
+
+local function removeKillerESP(targetModel)
+    local highlight = targetModel:FindFirstChild(KILLER_HIGHLIGHT_NAME)
+    if highlight then
+        highlight:Destroy()
+    end
+end
+
+task.spawn(function()
+    while true do
+        for _, obj in ipairs(Workspace:GetChildren()) do
+            if obj:IsA("Model") then
+                local humanoid = obj:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    if humanoid.Health == math.huge or tostring(humanoid.Health) == "inf" then
+                        if killerEspEnabled then
+                            applyKillerESP(obj)
+                        else
+                            removeKillerESP(obj)
+                        end
+                    end
+                end
+            end
+        end
+        task.wait(1)
+    end
+end)
+
+
+-- ==================== 5. Loot ESP 逻辑 ====================
+local LOOT_FOLDER_NAME = "MyLoot"
+local LOOT_HIGHLIGHT_NAME = "LootRarityESP"
+local MAX_DISTANCE = 80
+
+local RARITY_COLORS = {
+    Common = Color3.fromRGB(128, 128, 128),
+    Uncommon = Color3.fromRGB(0, 255, 0),
+    Rare = Color3.fromRGB(0, 150, 255),
+    Mythic = Color3.fromRGB(255, 0, 0),
+    Legendary = Color3.fromRGB(255, 255, 0)
+}
+local DEFAULT_LOOT_COLOR = Color3.fromRGB(255, 255, 255)
+
+local function getRarityColor(item)
+    local rarity = item:GetAttribute("Rarity")
+    if rarity and RARITY_COLORS[rarity] then
+        return RARITY_COLORS[rarity]
+    end
+    return DEFAULT_LOOT_COLOR
+end
+
+local function manageLootHighlight(item)
+    if not item:IsA("Model") and not item:IsA("BasePart") then return end
+    
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local rootPart = character.HumanoidRootPart
+    local itemPos = item:IsA("Model") and (item.PrimaryPart and item.PrimaryPart.Position or item:GetPivot().Position) or item.Position
+    local distance = (rootPart.Position - itemPos).Magnitude
+
+    local highlight = item:FindFirstChild(LOOT_HIGHLIGHT_NAME)
+
+    if lootEspEnabled and distance <= MAX_DISTANCE then
+        local targetColor = getRarityColor(item)
+        if not highlight then
+            highlight = Instance.new("Highlight")
+            highlight.Name = LOOT_HIGHLIGHT_NAME
+            highlight.Adornee = item
+            highlight.FillTransparency = 0.5
+            highlight.OutlineTransparency = 0
+            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+            highlight.Parent = item
+        end
+        highlight.FillColor = targetColor
+    else
+        if highlight then
+            highlight:Destroy()
+        end
+    end
+end
+
+task.spawn(function()
+    while true do
+        local lootFolder = Workspace:FindFirstChild(LOOT_FOLDER_NAME)
+        if lootFolder then
+            for _, item in ipairs(lootFolder:GetDescendants()) do
+                if item:GetAttribute("Loot") == true or item:GetAttribute("Rarity") ~= nil then
+                    manageLootHighlight(item)
+                end
+            end
+        end
+        task.wait(0.5)
+    end
+end)
+
+
+-- ==================== 6. Infinite Stamina 逻辑[cite: 1] ====================
+local originalInfStamina = LocalPlayer:GetAttribute("AdminInfStamina")
+
+RunService.Heartbeat:Connect(function()
+    if infiniteStaminaEnabled then
+        if LocalPlayer:GetAttribute("AdminInfStamina") ~= true then
+            LocalPlayer:SetAttribute("AdminInfStamina", true)
+        end
+    else
+        if LocalPlayer:GetAttribute("AdminInfStamina") ~= originalInfStamina then
+            LocalPlayer:SetAttribute("AdminInfStamina", originalInfStamina)
+        end
+    end
+end)
+
+
+-- ==================== 7. Instant Prompt (默认生效) ====================
+local function instantPrompt(prompt)
+    if prompt:IsA("ProximityPrompt") then
+        prompt.HoldDuration = 0
+    end
+end
+
+for _, obj in ipairs(Workspace:GetDescendants()) do
+    instantPrompt(obj)
+end
+
+Workspace.DescendantAdded:Connect(function(obj)
+    instantPrompt(obj)
+end)
+
+print("ESP & Stamina Panel Loaded Successfully!")
